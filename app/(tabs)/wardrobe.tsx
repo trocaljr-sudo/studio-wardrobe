@@ -3,6 +3,7 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   RefreshControl,
   SafeAreaView,
   StyleSheet,
@@ -80,6 +81,13 @@ export default function WardrobeScreen() {
         }
         renderItem={({ item }) => (
           <View style={styles.card}>
+            {item.imageUrl ? (
+              <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
+            ) : (
+              <View style={styles.imageFallback}>
+                <Text style={styles.imageFallbackText}>No image</Text>
+              </View>
+            )}
             <Text style={styles.itemName}>{item.name}</Text>
             <Text style={styles.itemMeta}>
               {item.color?.trim() ? item.color : 'Color not set'}
@@ -154,17 +162,38 @@ const styles = StyleSheet.create({
     borderColor: '#E7D8CA',
     borderRadius: 18,
     borderWidth: 1,
-    padding: 18,
+    overflow: 'hidden',
+  },
+  itemImage: {
+    backgroundColor: '#EFE6DE',
+    height: 180,
+    width: '100%',
+  },
+  imageFallback: {
+    alignItems: 'center',
+    backgroundColor: '#EFE6DE',
+    height: 180,
+    justifyContent: 'center',
+    width: '100%',
+  },
+  imageFallbackText: {
+    color: '#8E837A',
+    fontSize: 14,
+    fontWeight: '600',
   },
   itemName: {
     color: '#201A17',
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 6,
+    paddingHorizontal: 18,
+    paddingTop: 16,
   },
   itemMeta: {
     color: '#6B615A',
     fontSize: 15,
+    paddingBottom: 18,
+    paddingHorizontal: 18,
   },
   emptyState: {
     alignItems: 'center',

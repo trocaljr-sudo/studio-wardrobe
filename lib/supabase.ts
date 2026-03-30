@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 const appConfig = Constants.expoConfig?.extra ?? {};
 const supabaseUrl = appConfig.supabaseUrl;
 const supabaseAnonKey = appConfig.supabaseAnonKey;
+export const supabaseImagesBucket = appConfig.supabaseImagesBucket ?? 'images';
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase configuration in app.json extra.');
