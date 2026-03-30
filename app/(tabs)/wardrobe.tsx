@@ -1,57 +1,97 @@
 import { useFocusEffect } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   Image,
+  Pressable,
   RefreshControl,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 
 import { useSession } from '../../lib/session';
-import { type ClothingItem, fetchWardrobeItems } from '../../lib/wardrobe';
+import { type Category, type ClothingItem, fetchCategories, fetchWardrobeItems } from '../../lib/wardrobe';
 
 export default function WardrobeScreen() {
   const { user } = useSession();
   const [items, setItems] = useState<ClothingItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const loadItems = async (mode: 'initial' | 'refresh' = 'initial') => {
-    if (!user) {
-      setItems([]);
-      setLoading(false);
-      setRefreshing(false);
+  useEffect(() => {
+    let mounted = true;
+
+    const loadCategories = async () => {
+      try {
+        const nextCategories = await fetchCategories();
+        if (mounted) {
+          setCategories(nextCategories);
+        }
+      } catch {
+        if (mounted) {
+          setCategories([]);
+        }
+      }
+    };
+
+    loadCategories();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const loadItems = useCallback(
+    async (mode: 'initial' | 'refresh' = 'initial') => {
+      if (!user) {
+        setItems([]);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      if (mode === 'refresh') {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      try {
+        const { items: nextItems } = await fetchWardrobeItems(user.id, selectedCategoryId);
+        setItems(nextItems);
+        setErrorMessage(null);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Unable to load your wardrobe right now.';
+        setErrorMessage(message);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [selectedCategoryId, user]
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      loadItems();
+    }, [loadItems])
+  );
+
+  useEffect(() => {
+    if (loading) {
       return;
     }
 
-    if (mode === 'refresh') {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-
-    try {
-      const { items: nextItems } = await fetchWardrobeItems(user.id);
-      setItems(nextItems);
-      setErrorMessage(null);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unable to load your wardrobe right now.';
-      setErrorMessage(message);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useFocusEffect(() => {
     loadItems();
-  });
+  }, [loadItems, loading]);
 
   if (loading) {
     return (
@@ -88,18 +128,68 @@ export default function WardrobeScreen() {
                 <Text style={styles.imageFallbackText}>No image</Text>
               </View>
             )}
-            <Text style={styles.itemName}>{item.name}</Text>
-            <Text style={styles.itemMeta}>
-              {item.color?.trim() ? item.color : 'Color not set'}
-            </Text>
+            <View style={styles.cardContent}>
+              <Text style={styles.itemName}>{item.name}</Text>
+              <Text style={styles.itemMeta}>
+                {item.color?.trim() ? item.color : 'Color not set'}
+              </Text>
+              {item.categoryName ? <Text style={styles.detailText}>{item.categoryName}</Text> : null}
+              {item.brandName ? <Text style={styles.detailText}>{item.brandName}</Text> : null}
+            </View>
           </View>
         )}
         ListHeaderComponent={
           <View style={styles.header}>
             <Text style={styles.title}>Wardrobe</Text>
             <Text style={styles.body}>
-              A simple live list of your latest clothing items from Supabase.
+              Browse your items by category and see the key metadata at a glance.
             </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.filterScroll}
+            >
+              <View style={styles.filterRow}>
+                <View>
+                  <Text style={styles.filterLabel}>Filter</Text>
+                </View>
+                <Pressable
+                  onPress={() => setSelectedCategoryId(null)}
+                  style={[
+                    styles.filterChip,
+                    !selectedCategoryId && styles.filterChipActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      !selectedCategoryId && styles.filterChipTextActive,
+                    ]}
+                  >
+                    All
+                  </Text>
+                </Pressable>
+                {categories.map((category) => (
+                  <Pressable
+                    key={category.id}
+                    onPress={() => setSelectedCategoryId(category.id)}
+                    style={[
+                      styles.filterChip,
+                      selectedCategoryId === category.id && styles.filterChipActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        selectedCategoryId === category.id && styles.filterChipTextActive,
+                      ]}
+                    >
+                      {category.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </ScrollView>
             {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
           </View>
         }
@@ -107,7 +197,9 @@ export default function WardrobeScreen() {
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>No items yet</Text>
             <Text style={styles.emptyBody}>
-              Add your first piece from the Add Item tab and it will show up here.
+              {selectedCategoryId
+                ? 'No items match this category yet.'
+                : 'Add your first piece from the Add Item tab and it will show up here.'}
             </Text>
           </View>
         }
@@ -140,6 +232,41 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 18,
   },
+  filterScroll: {
+    marginTop: 16,
+  },
+  filterRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  filterLabel: {
+    color: '#6B615A',
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  filterChip: {
+    backgroundColor: '#FFFDF9',
+    borderColor: '#E7D8CA',
+    borderRadius: 999,
+    borderWidth: 1,
+    overflow: 'hidden',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  filterChipActive: {
+    backgroundColor: '#201A17',
+    borderColor: '#201A17',
+  },
+  filterChipText: {
+    color: '#6B615A',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  filterChipTextActive: {
+    color: '#F7F1EB',
+  },
   title: {
     color: '#201A17',
     fontSize: 30,
@@ -163,6 +290,9 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     overflow: 'hidden',
+  },
+  cardContent: {
+    paddingBottom: 18,
   },
   itemImage: {
     backgroundColor: '#EFE6DE',
@@ -192,8 +322,13 @@ const styles = StyleSheet.create({
   itemMeta: {
     color: '#6B615A',
     fontSize: 15,
-    paddingBottom: 18,
     paddingHorizontal: 18,
+  },
+  detailText: {
+    color: '#8C5E3C',
+    fontSize: 14,
+    paddingHorizontal: 18,
+    paddingTop: 6,
   },
   emptyState: {
     alignItems: 'center',
@@ -211,6 +346,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     maxWidth: 280,
+    paddingTop: 10,
     textAlign: 'center',
   },
 });

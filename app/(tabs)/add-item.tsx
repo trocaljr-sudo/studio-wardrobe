@@ -14,17 +14,33 @@ import {
 } from 'react-native';
 
 import { useSession } from '../../lib/session';
-import { type Category, createClothingItem, fetchCategories } from '../../lib/wardrobe';
+import {
+  type Brand,
+  type Category,
+  type Tag,
+  createClothingItem,
+  fetchBrands,
+  fetchCategories,
+  fetchTags,
+} from '../../lib/wardrobe';
 
 export default function AddItemScreen() {
   const { user } = useSession();
   const [name, setName] = useState('');
   const [color, setColor] = useState('');
+  const [size, setSize] = useState('');
+  const [material, setMaterial] = useState('');
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const [selectedImageMimeType, setSelectedImageMimeType] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [brandsLoading, setBrandsLoading] = useState(true);
+  const [tagsLoading, setTagsLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -32,33 +48,52 @@ export default function AddItemScreen() {
   useEffect(() => {
     let mounted = true;
 
-    const loadCategories = async () => {
+    const loadMetadata = async () => {
       try {
-        const nextCategories = await fetchCategories();
+        const [nextCategories, nextBrands, nextTags] = await Promise.all([
+          fetchCategories(),
+          fetchBrands(),
+          fetchTags(),
+        ]);
+
         if (!mounted) {
           return;
         }
 
         setCategories(nextCategories);
+        setBrands(nextBrands);
+        setTags(nextTags);
       } catch {
         if (!mounted) {
           return;
         }
 
         setCategories([]);
+        setBrands([]);
+        setTags([]);
       } finally {
         if (mounted) {
           setCategoriesLoading(false);
+          setBrandsLoading(false);
+          setTagsLoading(false);
         }
       }
     };
 
-    loadCategories();
+    loadMetadata();
 
     return () => {
       mounted = false;
     };
   }, []);
+
+  const toggleTag = (tagId: string) => {
+    setSelectedTagIds((current) =>
+      current.includes(tagId)
+        ? current.filter((existingTagId) => existingTagId !== tagId)
+        : [...current, tagId]
+    );
+  };
 
   const handlePickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -98,6 +133,12 @@ export default function AddItemScreen() {
       return;
     }
 
+    if (!selectedCategoryId) {
+      setErrorMessage('Choose a category before saving.');
+      setSuccessMessage(null);
+      return;
+    }
+
     setLoading(true);
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -107,16 +148,24 @@ export default function AddItemScreen() {
         ownerId: user.id,
         name: name.trim(),
         color,
+        size,
+        material,
         categoryId: selectedCategoryId,
+        brandId: selectedBrandId,
+        tagIds: selectedTagIds,
         imageUri: selectedImageUri,
         mimeType: selectedImageMimeType,
       });
 
       setName('');
       setColor('');
+      setSize('');
+      setMaterial('');
       setSelectedImageUri(null);
       setSelectedImageMimeType(null);
       setSelectedCategoryId(null);
+      setSelectedBrandId(null);
+      setSelectedTagIds([]);
       setSuccessMessage('Item saved to your wardrobe.');
     } catch (error) {
       const message =
@@ -136,7 +185,7 @@ export default function AddItemScreen() {
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={styles.title}>Add Item</Text>
           <Text style={styles.body}>
-            Pick an image, choose a category if you want, and save the item to your active wardrobe.
+            Build a real wardrobe entry with structured metadata you can browse later.
           </Text>
 
           <View style={styles.form}>
@@ -167,28 +216,25 @@ export default function AddItemScreen() {
               style={styles.input}
               value={color}
             />
+            <TextInput
+              onChangeText={setSize}
+              placeholder="Size"
+              placeholderTextColor="#8B8B95"
+              style={styles.input}
+              value={size}
+            />
+            <TextInput
+              onChangeText={setMaterial}
+              placeholder="Material"
+              placeholderTextColor="#8B8B95"
+              style={styles.input}
+              value={material}
+            />
 
             <View style={styles.categoriesSection}>
               <Text style={styles.sectionLabel}>Category</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.categoryRow}>
-                  <Pressable
-                    onPress={() => setSelectedCategoryId(null)}
-                    style={[
-                      styles.categoryChip,
-                      !selectedCategoryId && styles.categoryChipActive,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.categoryChipText,
-                        !selectedCategoryId && styles.categoryChipTextActive,
-                      ]}
-                    >
-                      None
-                    </Text>
-                  </Pressable>
-
                   {categories.map((category) => {
                     const selected = selectedCategoryId === category.id;
 
@@ -213,6 +259,86 @@ export default function AddItemScreen() {
               </ScrollView>
               {categoriesLoading ? (
                 <Text style={styles.categoryHelper}>Loading categories...</Text>
+              ) : categories.length === 0 ? (
+                <Text style={styles.categoryHelper}>Categories are unavailable right now.</Text>
+              ) : null}
+            </View>
+
+            <View style={styles.categoriesSection}>
+              <Text style={styles.sectionLabel}>Brand</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.categoryRow}>
+                  <Pressable
+                    onPress={() => setSelectedBrandId(null)}
+                    style={[styles.categoryChip, !selectedBrandId && styles.categoryChipActive]}
+                  >
+                    <Text
+                      style={[
+                        styles.categoryChipText,
+                        !selectedBrandId && styles.categoryChipTextActive,
+                      ]}
+                    >
+                      None
+                    </Text>
+                  </Pressable>
+
+                  {brands.map((brand) => {
+                    const selected = selectedBrandId === brand.id;
+
+                    return (
+                      <Pressable
+                        key={brand.id}
+                        onPress={() => setSelectedBrandId(brand.id)}
+                        style={[styles.categoryChip, selected && styles.categoryChipActive]}
+                      >
+                        <Text
+                          style={[
+                            styles.categoryChipText,
+                            selected && styles.categoryChipTextActive,
+                          ]}
+                        >
+                          {brand.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+              {brandsLoading ? (
+                <Text style={styles.categoryHelper}>Loading brands...</Text>
+              ) : brands.length === 0 ? (
+                <Text style={styles.categoryHelper}>No brands available yet.</Text>
+              ) : null}
+            </View>
+
+            <View style={styles.categoriesSection}>
+              <Text style={styles.sectionLabel}>Tags</Text>
+              <View style={styles.tagsWrap}>
+                {tags.map((tag) => {
+                  const selected = selectedTagIds.includes(tag.id);
+
+                  return (
+                    <Pressable
+                      key={tag.id}
+                      onPress={() => toggleTag(tag.id)}
+                      style={[styles.categoryChip, selected && styles.categoryChipActive]}
+                    >
+                      <Text
+                        style={[
+                          styles.categoryChipText,
+                          selected && styles.categoryChipTextActive,
+                        ]}
+                      >
+                        {tag.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              {tagsLoading ? (
+                <Text style={styles.categoryHelper}>Loading tags...</Text>
+              ) : tags.length === 0 ? (
+                <Text style={styles.categoryHelper}>No tags available yet.</Text>
               ) : null}
             </View>
 
@@ -311,6 +437,11 @@ const styles = StyleSheet.create({
   },
   categoryRow: {
     flexDirection: 'row',
+    gap: 10,
+  },
+  tagsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
   },
   categoryChip: {

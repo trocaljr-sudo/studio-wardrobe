@@ -9,9 +9,25 @@ export type ClothingItem = {
   owner_id: string;
   image_path: string | null;
   imageUrl: string | null;
+  size: string | null;
+  material: string | null;
+  category_id: string | null;
+  brand_id: string | null;
+  categoryName: string | null;
+  brandName: string | null;
 };
 
 export type Category = {
+  id: string;
+  name: string;
+};
+
+export type Brand = {
+  id: string;
+  name: string;
+};
+
+export type Tag = {
   id: string;
   name: string;
 };
@@ -36,7 +52,19 @@ type ClothingItemRow = {
   wardrobe_id: string;
   owner_id: string;
   image_path: string | null;
+  size: string | null;
+  material: string | null;
+  category_id: string | null;
+  brand_id: string | null;
+  categories: { id: string; name: string }[] | null;
+  brands: { id: string; name: string }[] | null;
 };
+
+function getFirstRelationName(
+  relation: { id: string; name: string }[] | null | undefined
+) {
+  return relation?.[0]?.name ?? null;
+}
 
 function buildImagePath(userId: string, localUri: string, mimeType?: string | null) {
   const uriExtension = localUri.split('.').pop()?.toLowerCase();
@@ -123,14 +151,22 @@ export async function ensureActiveWardrobe(userId: string) {
   return wardrobeId;
 }
 
-export async function fetchWardrobeItems(userId: string) {
+export async function fetchWardrobeItems(userId: string, categoryId?: string | null) {
   await ensureActiveWardrobe(userId);
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('clothing_items')
-    .select('id, name, color, created_at, wardrobe_id, owner_id, image_path')
+    .select(
+      'id, name, color, created_at, wardrobe_id, owner_id, image_path, size, material, category_id, brand_id, categories(id, name), brands(id, name)'
+    )
     .eq('owner_id', userId)
     .order('created_at', { ascending: false });
+
+  if (categoryId) {
+    query = query.eq('category_id', categoryId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     throw error;
@@ -163,17 +199,23 @@ export async function fetchWardrobeItems(userId: string) {
     items: clothingItems.map((item) => ({
       ...item,
       imageUrl: imageUrlMap.get(item.id) ?? null,
+      categoryName: getFirstRelationName(item.categories),
+      brandName: getFirstRelationName(item.brands),
     })) as ClothingItem[],
   };
 }
 
 export async function createClothingItem(input: {
+  brandId?: string | null;
   categoryId?: string | null;
   color?: string;
   imageUri?: string | null;
+  material?: string;
   mimeType?: string | null;
   name: string;
   ownerId: string;
+  size?: string;
+  tagIds?: string[];
 }) {
   const wardrobeId = await ensureActiveWardrobe(input.ownerId);
   let uploadedImagePath: string | null = null;
@@ -201,13 +243,18 @@ export async function createClothingItem(input: {
     name: input.name,
     color: input.color?.trim() ? input.color.trim() : null,
     category_id: input.categoryId ?? null,
+    brand_id: input.brandId ?? null,
+    size: input.size?.trim() ? input.size.trim() : null,
+    material: input.material?.trim() ? input.material.trim() : null,
     image_path: uploadedImagePath,
   };
 
   const { data: clothingItem, error } = await supabase
     .from('clothing_items')
     .insert(payload)
-    .select('id, name, color, created_at, wardrobe_id, owner_id, image_path')
+    .select(
+      'id, name, color, created_at, wardrobe_id, owner_id, image_path, size, material, category_id, brand_id, categories(id, name), brands(id, name)'
+    )
     .single<ClothingItemRow>();
 
   if (error) {
@@ -217,9 +264,30 @@ export async function createClothingItem(input: {
     throw error;
   }
 
+  if (input.tagIds && input.tagIds.length > 0) {
+    const tagRows = input.tagIds.map((tagId) => ({
+      clothing_item_id: clothingItem.id,
+      tag_id: tagId,
+    }));
+
+    const { error: tagInsertError } = await supabase.from('clothing_item_tags').insert(tagRows);
+
+    if (tagInsertError) {
+      await supabase.from('clothing_items').delete().eq('id', clothingItem.id);
+
+      if (uploadedImagePath) {
+        await supabase.storage.from(supabaseImagesBucket).remove([uploadedImagePath]);
+      }
+
+      throw tagInsertError;
+    }
+  }
+
   return {
     ...clothingItem,
     imageUrl: null,
+    categoryName: getFirstRelationName(clothingItem.categories),
+    brandName: getFirstRelationName(clothingItem.brands),
   } as ClothingItem;
 }
 
@@ -234,4 +302,27 @@ export async function fetchCategories() {
   }
 
   return (data ?? []) as Category[];
+}
+
+export async function fetchBrands() {
+  const { data, error } = await supabase
+    .from('brands')
+    .select('id, name')
+    .order('name', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as Brand[];
+}
+
+export async function fetchTags() {
+  const { data, error } = await supabase.from('tags').select('id, name').order('name');
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as Tag[];
 }
