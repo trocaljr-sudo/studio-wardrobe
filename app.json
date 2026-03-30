@@ -1,7 +1,8 @@
 {
   "expo": {
-    "name": "closet-app",
-    "slug": "closet-app",
+    "scheme": "studiowardrobe",
+    "name": "Studio Wardrobe",
+    "slug": "studio-wardrobe",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -24,6 +25,9 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router"
+    ]
   }
 }
