@@ -37,6 +37,8 @@ export default function NewOutfitScreen() {
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const selectedItems = items.filter((item) => selectedItemIds.includes(item.id));
+
   useEffect(() => {
     let mounted = true;
 
@@ -113,8 +115,6 @@ export default function NewOutfitScreen() {
     setErrorMessage(null);
 
     try {
-      const selectedItems = items.filter((item) => selectedItemIds.includes(item.id));
-
       await createOutfit({
         ownerId: user.id,
         name: name.trim(),
@@ -177,33 +177,88 @@ export default function NewOutfitScreen() {
             value={description}
           />
 
+          <View style={styles.selectedSummaryCard}>
+            <View style={styles.selectedSummaryHeader}>
+              <Text style={styles.sectionTitle}>Selected pieces</Text>
+              <Text style={styles.selectedCount}>
+                {selectedItems.length} {selectedItems.length === 1 ? 'item' : 'items'}
+              </Text>
+            </View>
+            {selectedItems.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.selectedItemsRow}>
+                  {selectedItems.map((item) => (
+                    <Pressable
+                      key={item.id}
+                      onPress={() => toggleSelection(item.id, setSelectedItemIds)}
+                      style={styles.selectedItemCard}
+                    >
+                      {item.imageUrl ? (
+                        <Image source={{ uri: item.imageUrl }} style={styles.selectedItemImage} />
+                      ) : (
+                        <View style={styles.selectedItemImageFallback}>
+                          <Text style={styles.selectedItemFallbackText}>No image</Text>
+                        </View>
+                      )}
+                      <View style={styles.selectedItemCopy}>
+                        <Text numberOfLines={1} style={styles.selectedItemName}>
+                          {item.name}
+                        </Text>
+                        <Text numberOfLines={1} style={styles.selectedItemMeta}>
+                          {item.categoryName ?? item.color ?? 'Wardrobe item'}
+                        </Text>
+                      </View>
+                      <Text style={styles.removeSelectedText}>Remove</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </ScrollView>
+            ) : (
+              <Text style={styles.emptySelectionText}>
+                Choose at least one piece below to start building this outfit.
+              </Text>
+            )}
+          </View>
+
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Select items</Text>
-            <View style={styles.itemsGrid}>
-              {items.map((item) => {
-                const selected = selectedItemIds.includes(item.id);
+            {items.length > 0 ? (
+              <View style={styles.itemsGrid}>
+                {items.map((item) => {
+                  const selected = selectedItemIds.includes(item.id);
 
-                return (
-                  <Pressable
-                    key={item.id}
-                    onPress={() => toggleSelection(item.id, setSelectedItemIds)}
-                    style={[styles.itemCard, selected && styles.itemCardSelected]}
-                  >
-                    {item.imageUrl ? (
-                      <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
-                    ) : (
-                      <View style={styles.itemImagePlaceholder}>
-                        <Text style={styles.itemImagePlaceholderText}>No image</Text>
-                      </View>
-                    )}
-                    <Text style={styles.itemName}>{item.name}</Text>
-                    <Text style={styles.itemMeta}>
-                      {item.categoryName ?? item.color ?? 'Wardrobe item'}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+                  return (
+                    <Pressable
+                      key={item.id}
+                      onPress={() => toggleSelection(item.id, setSelectedItemIds)}
+                      style={[styles.itemCard, selected && styles.itemCardSelected]}
+                    >
+                      {item.imageUrl ? (
+                        <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
+                      ) : (
+                        <View style={styles.itemImagePlaceholder}>
+                          <Text style={styles.itemImagePlaceholderText}>No image</Text>
+                        </View>
+                      )}
+                      <Text style={styles.itemName}>{item.name}</Text>
+                      <Text style={styles.itemMeta}>
+                        {item.categoryName ?? item.color ?? 'Wardrobe item'}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateTitle}>No wardrobe items yet</Text>
+                <Text style={styles.emptyStateBody}>
+                  Add a few clothing items first, then come back to build your first outfit.
+                </Text>
+                <Pressable onPress={() => router.push('/(tabs)/add-item')} style={styles.secondaryButton}>
+                  <Text style={styles.secondaryButtonText}>Add wardrobe item</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
 
           <View style={styles.section}>
@@ -320,6 +375,80 @@ const styles = StyleSheet.create({
     minHeight: 100,
     textAlignVertical: 'top',
   },
+  selectedSummaryCard: {
+    backgroundColor: '#FFFDF9',
+    borderColor: '#E7D8CA',
+    borderRadius: 20,
+    borderWidth: 1,
+    marginTop: 8,
+    padding: 16,
+  },
+  selectedSummaryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  selectedCount: {
+    color: '#8C5E3C',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  selectedItemsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  selectedItemCard: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E7D8CA',
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+    width: 168,
+  },
+  selectedItemImage: {
+    height: 88,
+    width: '100%',
+  },
+  selectedItemImageFallback: {
+    alignItems: 'center',
+    backgroundColor: '#EFE6DE',
+    height: 88,
+    justifyContent: 'center',
+    width: '100%',
+  },
+  selectedItemFallbackText: {
+    color: '#8E837A',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  selectedItemCopy: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    gap: 4,
+  },
+  selectedItemName: {
+    color: '#201A17',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  selectedItemMeta: {
+    color: '#6B615A',
+    fontSize: 12,
+  },
+  removeSelectedText: {
+    color: '#8C5E3C',
+    fontSize: 12,
+    fontWeight: '700',
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    paddingTop: 10,
+  },
+  emptySelectionText: {
+    color: '#6B615A',
+    fontSize: 14,
+    lineHeight: 20,
+  },
   section: {
     marginTop: 14,
   },
@@ -375,6 +504,38 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     paddingHorizontal: 12,
     paddingTop: 6,
+  },
+  emptyState: {
+    backgroundColor: '#FFFDF9',
+    borderColor: '#E7D8CA',
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 18,
+    gap: 12,
+  },
+  emptyStateTitle: {
+    color: '#201A17',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  emptyStateBody: {
+    color: '#5D534C',
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  secondaryButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFFDF9',
+    borderColor: '#E7D8CA',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  secondaryButtonText: {
+    color: '#5D534C',
+    fontSize: 14,
+    fontWeight: '600',
   },
   chipWrap: {
     flexDirection: 'row',
