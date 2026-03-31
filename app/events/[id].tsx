@@ -17,6 +17,7 @@ import {
 
 import { deleteEvent, fetchEventDetail, updateEvent } from '../../lib/events';
 import { fetchOccasions, fetchOutfits, type Occasion, type OutfitSummary } from '../../lib/outfits';
+import { fetchEventRecommendations, type RecommendedOutfit } from '../../lib/recommendations';
 import { useSession } from '../../lib/session';
 
 function isValidDate(value: string) {
@@ -86,6 +87,7 @@ export default function EventDetailScreen() {
   const [notes, setNotes] = useState('');
   const [selectedOccasionId, setSelectedOccasionId] = useState<string | null>(null);
   const [selectedOutfitId, setSelectedOutfitId] = useState<string | null>(null);
+  const [recommendedOutfits, setRecommendedOutfits] = useState<RecommendedOutfit[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -103,10 +105,11 @@ export default function EventDetailScreen() {
       }
 
       try {
-        const [nextDetail, nextOccasions, nextOutfits] = await Promise.all([
+        const [nextDetail, nextOccasions, nextOutfits, nextRecommendations] = await Promise.all([
           fetchEventDetail(user.id, eventId),
           fetchOccasions(),
           fetchOutfits(user.id),
+          fetchEventRecommendations(user.id, eventId),
         ]);
 
         if (!mounted) {
@@ -122,6 +125,7 @@ export default function EventDetailScreen() {
         setNotes(nextDetail.notes ?? '');
         setSelectedOccasionId(nextDetail.occasion?.id ?? null);
         setSelectedOutfitId(nextDetail.outfit?.id ?? null);
+        setRecommendedOutfits(nextRecommendations.recommendations);
       } catch (error) {
         if (!mounted) {
           return;
@@ -194,7 +198,9 @@ export default function EventDetailScreen() {
       });
 
       const refreshedDetail = await fetchEventDetail(user.id, eventId);
+      const refreshedRecommendations = await fetchEventRecommendations(user.id, eventId);
       setDetail(refreshedDetail);
+      setRecommendedOutfits(refreshedRecommendations.recommendations);
       setEditing(false);
     } catch (error) {
       const message =
@@ -236,6 +242,41 @@ export default function EventDetailScreen() {
         },
       ]
     );
+  };
+
+  const assignRecommendedOutfit = async (outfitId: string) => {
+    if (!user || !detail || Number.isNaN(eventId)) {
+      return;
+    }
+
+    setSaving(true);
+    setErrorMessage(null);
+
+    try {
+      await updateEvent({
+        eventId,
+        userId: user.id,
+        title: detail.title,
+        scheduledDate: detail.scheduledDate ?? '',
+        scheduledTime: detail.scheduledTime ?? '',
+        notes: detail.notes ?? '',
+        occasionId: detail.occasion?.id ?? null,
+        outfitId,
+      });
+
+      const [refreshedDetail, refreshedRecommendations] = await Promise.all([
+        fetchEventDetail(user.id, eventId),
+        fetchEventRecommendations(user.id, eventId),
+      ]);
+      setDetail(refreshedDetail);
+      setRecommendedOutfits(refreshedRecommendations.recommendations);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to assign that outfit right now.';
+      setErrorMessage(message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const sortedOutfits = sortOutfits(allOutfits, selectedOccasionId);
@@ -439,6 +480,47 @@ export default function EventDetailScreen() {
             )}
           </View>
 
+          {!editing ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Suggested outfits</Text>
+              <Text style={styles.body}>
+                Ranked by occasion fit, event wording, outfit completeness, and how often the look has already been planned.
+              </Text>
+              {recommendedOutfits.length > 0 ? (
+                recommendedOutfits.map((recommendation) => (
+                  <View key={recommendation.outfit.id} style={styles.recommendationCard}>
+                    {recommendation.outfit.imageUrl ? (
+                      <Image source={{ uri: recommendation.outfit.imageUrl }} style={styles.recommendationImage} />
+                    ) : (
+                      <View style={styles.outfitPlaceholderSmall}>
+                        <Text style={styles.outfitPlaceholderText}>No preview</Text>
+                      </View>
+                    )}
+                    <View style={styles.recommendationCopy}>
+                      <Text style={styles.outfitName}>{recommendation.outfit.name}</Text>
+                      {recommendation.reasons.map((reason) => (
+                        <Text key={`${recommendation.outfit.id}-${reason}`} style={styles.recommendationReason}>
+                          {reason}
+                        </Text>
+                      ))}
+                      <Pressable
+                        disabled={saving}
+                        onPress={() => assignRecommendedOutfit(recommendation.outfit.id)}
+                        style={[styles.assignButton, saving && styles.disabledButton]}
+                      >
+                        <Text style={styles.assignButtonText}>Assign this look</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.helperText}>
+                  No strong alternative stands out yet. Adding more occasion-tagged outfits will sharpen these suggestions.
+                </Text>
+              )}
+            </View>
+          ) : null}
+
           {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
 
           {editing ? (
@@ -631,6 +713,41 @@ const styles = StyleSheet.create({
   outfitCopy: {
     flex: 1,
     gap: 4,
+  },
+  recommendationCard: {
+    flexDirection: 'row',
+    gap: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E3D2C4',
+    backgroundColor: '#FFFCF7',
+    padding: 12,
+  },
+  recommendationImage: {
+    width: 84,
+    height: 84,
+    borderRadius: 14,
+    backgroundColor: '#E8DDD2',
+  },
+  recommendationCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  recommendationReason: {
+    color: '#4E443C',
+    lineHeight: 19,
+  },
+  assignButton: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    backgroundColor: '#EFE3D6',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  assignButtonText: {
+    color: '#5A361A',
+    fontWeight: '700',
   },
   outfitName: {
     fontSize: 16,

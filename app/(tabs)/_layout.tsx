@@ -67,6 +67,12 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="recommendations"
+        options={{
+          title: 'Recommendations',
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
