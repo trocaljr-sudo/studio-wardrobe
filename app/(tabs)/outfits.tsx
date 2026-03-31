@@ -172,7 +172,7 @@ export default function OutfitsScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centered}>
-          <ActivityIndicator color="#8C5E3C" size="small" />
+          <ActivityIndicator color={colors.accent} size="small" />
           <Text style={styles.helperText}>Loading outfits...</Text>
         </View>
       </SafeAreaView>
@@ -191,7 +191,7 @@ export default function OutfitsScreen() {
               loadOutfits('refresh');
             }}
             refreshing={refreshing}
-            tintColor="#8C5E3C"
+            tintColor={colors.accent}
           />
         }
         renderItem={({ item }) => (
@@ -391,7 +391,7 @@ export default function OutfitsScreen() {
 const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   listContent: {
     padding: 24,

@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
 import { ActivityIndicator, SafeAreaView, StyleSheet, View } from 'react-native';
 
@@ -40,16 +41,24 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
-          height: 88,
-          paddingBottom: 12,
-          paddingTop: 10,
+          borderTopWidth: 1,
+          borderRadius: 28,
+          height: 94,
+          marginBottom: 14,
+          marginHorizontal: 14,
+          paddingBottom: 14,
+          paddingTop: 12,
+          position: 'absolute',
         },
         sceneStyle: {
-          backgroundColor: colors.background,
+          backgroundColor: 'transparent',
         },
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '700',
+        },
+        tabBarItemStyle: {
+          borderRadius: 18,
         },
       }}
     >
@@ -57,36 +66,61 @@ export default function TabsLayout() {
         name="wardrobe"
         options={{
           title: 'Wardrobe',
-        }}
-      />
-      <Tabs.Screen
-        name="add-item"
-        options={{
-          title: 'Add Item',
+          headerTitle: 'Wardrobe',
+          tabBarLabel: 'Home',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              color={color}
+              name={focused ? 'home' : 'home-outline'}
+              size={size}
+            />
+          ),
         }}
       />
       <Tabs.Screen
         name="outfits"
         options={{
           title: 'Outfits',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              color={color}
+              name={focused ? 'grid' : 'grid-outline'}
+              size={size}
+            />
+          ),
         }}
       />
       <Tabs.Screen
         name="events"
         options={{
           title: 'Events',
+          href: null,
         }}
       />
       <Tabs.Screen
         name="recommendations"
         options={{
           title: 'Recommendations',
+          href: null,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Settings',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              color={color}
+              name={focused ? 'settings' : 'settings-outline'}
+              size={size}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="add-item"
+        options={{
+          href: null,
         }}
       />
     </Tabs>
@@ -97,7 +131,7 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
   StyleSheet.create({
     safeArea: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: 'transparent',
     },
     loading: {
       flex: 1,

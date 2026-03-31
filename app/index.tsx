@@ -13,7 +13,7 @@ export default function IndexScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
-          <ActivityIndicator color="#8C5E3C" size="small" />
+          <ActivityIndicator color={colors.accent} size="small" />
           <Text style={styles.text}>Loading Studio Wardrobe...</Text>
         </View>
       </SafeAreaView>
@@ -31,7 +31,7 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
   StyleSheet.create({
     safeArea: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: 'transparent',
     },
     container: {
       flex: 1,

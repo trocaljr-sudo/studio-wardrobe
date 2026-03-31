@@ -1,13 +1,16 @@
+import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
+  ActionSheetIOS,
+  Alert,
   Image,
   KeyboardAvoidingView,
-  ScrollView,
   Platform,
   Pressable,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -99,7 +102,18 @@ export default function AddItemScreen() {
     );
   };
 
-  const handlePickImage = async () => {
+  const setSelectedAsset = (asset: { uri: string; mimeType?: string | null } | null) => {
+    if (!asset) {
+      return;
+    }
+
+    setSelectedImageUri(asset.uri);
+    setSelectedImageMimeType(asset.mimeType ?? 'image/jpeg');
+    setErrorMessage(null);
+    setSuccessMessage(null);
+  };
+
+  const handlePickFromLibrary = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
@@ -118,16 +132,98 @@ export default function AddItemScreen() {
       return;
     }
 
-    const asset = result.assets[0];
-    setSelectedImageUri(asset.uri);
-    setSelectedImageMimeType(asset.mimeType ?? 'image/jpeg');
-    setErrorMessage(null);
+    setSelectedAsset(result.assets[0]);
+  };
+
+  const handlePickFromFiles = async () => {
+    const result = await DocumentPicker.getDocumentAsync({
+      copyToCacheDirectory: true,
+      multiple: false,
+      type: 'image/*',
+    });
+
+    if (result.canceled || !result.assets[0]) {
+      return;
+    }
+
+    setSelectedAsset(result.assets[0]);
+  };
+
+  const handleUseCamera = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+
+    if (!permission.granted) {
+      setErrorMessage('Camera access is required to take a new item photo.');
+      setSuccessMessage(null);
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      mediaTypes: ['images'],
+      quality: 0.85,
+    });
+
+    if (result.canceled || !result.assets[0]) {
+      return;
+    }
+
+    setSelectedAsset(result.assets[0]);
   };
 
   const handleRemoveImage = () => {
     setSelectedImageUri(null);
     setSelectedImageMimeType(null);
     setErrorMessage(null);
+  };
+
+  const openImageSourceMenu = () => {
+    const options = [
+      'Choose from photo album',
+      'Choose from files',
+      'Use camera',
+      ...(selectedImageUri ? ['Remove photo'] : []),
+      'Cancel',
+    ];
+    const cancelButtonIndex = options.length - 1;
+    const destructiveButtonIndex = selectedImageUri ? options.indexOf('Remove photo') : undefined;
+
+    const handleOption = (selectedIndex: number) => {
+      const selectedOption = options[selectedIndex];
+
+      if (selectedOption === 'Choose from photo album') {
+        void handlePickFromLibrary();
+      } else if (selectedOption === 'Choose from files') {
+        void handlePickFromFiles();
+      } else if (selectedOption === 'Use camera') {
+        void handleUseCamera();
+      } else if (selectedOption === 'Remove photo') {
+        handleRemoveImage();
+      }
+    };
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options,
+          cancelButtonIndex,
+          destructiveButtonIndex,
+          userInterfaceStyle: 'dark',
+        },
+        handleOption
+      );
+      return;
+    }
+
+    Alert.alert('Add item photo', 'Choose where to import your image from.', [
+      { text: 'Choose from photo album', onPress: () => void handlePickFromLibrary() },
+      { text: 'Choose from files', onPress: () => void handlePickFromFiles() },
+      { text: 'Use camera', onPress: () => void handleUseCamera() },
+      ...(selectedImageUri
+        ? [{ text: 'Remove photo', style: 'destructive' as const, onPress: handleRemoveImage }]
+        : []),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
   };
 
   const handleSave = async () => {
@@ -200,28 +296,25 @@ export default function AddItemScreen() {
           </Text>
 
           <View style={styles.form}>
-            <Pressable onPress={handlePickImage} style={styles.imagePicker}>
-              {selectedImageUri ? (
-                <View style={styles.previewWrap}>
-                  <Image source={{ uri: selectedImageUri }} style={styles.previewImage} />
-                  <View style={styles.imageActions}>
-                    <Pressable onPress={handlePickImage} style={styles.secondaryButton}>
-                      <Text style={styles.secondaryButtonText}>Change photo</Text>
-                    </Pressable>
-                    <Pressable onPress={handleRemoveImage} style={styles.secondaryButton}>
-                      <Text style={styles.secondaryButtonText}>Remove photo</Text>
-                    </Pressable>
+            <View style={styles.imagePicker}>
+              <Pressable onPress={openImageSourceMenu}>
+                {selectedImageUri ? (
+                  <View style={styles.previewWrap}>
+                    <Image source={{ uri: selectedImageUri }} style={styles.previewImage} />
+                    <View style={styles.imageOverlayButton}>
+                      <Text style={styles.imageOverlayButtonText}>Change photo</Text>
+                    </View>
                   </View>
-                </View>
-              ) : (
-                <View style={styles.imagePlaceholder}>
-                  <Text style={styles.imagePlaceholderTitle}>Pick image</Text>
-                  <Text style={styles.imagePlaceholderBody}>
-                    Upload a photo for this clothing item. You can still save without one.
-                  </Text>
-                </View>
-              )}
-            </Pressable>
+                ) : (
+                  <View style={styles.imagePlaceholder}>
+                    <Text style={styles.imagePlaceholderTitle}>Add item photo</Text>
+                    <Text style={styles.imagePlaceholderBody}>
+                      Tap to choose from your photo album, Files, or camera.
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+            </View>
 
             <TextInput
               onChangeText={setName}
@@ -383,7 +476,7 @@ export default function AddItemScreen() {
 const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   container: {
     flex: 1,
@@ -440,23 +533,24 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
   },
   previewWrap: {
     gap: 10,
+    position: 'relative',
   },
-  imageActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  secondaryButton: {
-    backgroundColor: '#FFFDF9',
-    borderColor: '#E7D8CA',
+  imageOverlayButton: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    backgroundColor: colors.surfaceStrong,
+    borderColor: colors.border,
     borderRadius: 999,
     borderWidth: 1,
-    paddingHorizontal: 14,
+    bottom: 14,
+    paddingHorizontal: 16,
     paddingVertical: 10,
+    position: 'absolute',
   },
-  secondaryButtonText: {
-    color: '#5D534C',
-    fontSize: 13,
-    fontWeight: '600',
+  imageOverlayButtonText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '700',
   },
   input: {
     backgroundColor: colors.input,

@@ -62,6 +62,14 @@ type ClothingItemRow = {
   brands: { id: string; name: string }[] | null;
 };
 
+type LegacyImageRow = {
+  bucket_id: string | null;
+  clothing_item_id: string | null;
+  is_primary: boolean | null;
+  path: string | null;
+  uploaded_at?: string | null;
+};
+
 const clothingItemSelect =
   'id, name, color, created_at, wardrobe_id, owner_id, image_path, size, material, category_id, brand_id, categories(id, name), brands(id, name)';
 
@@ -79,13 +87,13 @@ function buildImagePath(userId: string, localUri: string, mimeType?: string | nu
   return `${userId}/${Date.now()}.${extension}`;
 }
 
-async function createSignedImageUrl(path: string | null) {
+async function createSignedImageUrl(path: string | null, bucketId?: string | null) {
   if (!path) {
     return null;
   }
 
   const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-    .from(supabaseImagesBucket)
+    .from(bucketId ?? supabaseImagesBucket)
     .createSignedUrl(path, 60 * 60);
 
   if (signedUrlError) {
@@ -93,6 +101,57 @@ async function createSignedImageUrl(path: string | null) {
   }
 
   return signedUrlData.signedUrl;
+}
+
+async function fetchLegacyImageMap(itemIds: string[]) {
+  const imageMap = new Map<string, { bucketId: string | null; path: string | null }>();
+
+  if (itemIds.length === 0) {
+    return imageMap;
+  }
+
+  const { data, error } = await supabase
+    .from('images')
+    .select('clothing_item_id, path, bucket_id, is_primary, uploaded_at')
+    .in('clothing_item_id', itemIds)
+    .order('is_primary', { ascending: false })
+    .order('uploaded_at', { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  ((data ?? []) as LegacyImageRow[]).forEach((row) => {
+    if (!row.clothing_item_id || imageMap.has(row.clothing_item_id)) {
+      return;
+    }
+
+    imageMap.set(row.clothing_item_id, {
+      bucketId: row.bucket_id,
+      path: row.path,
+    });
+  });
+
+  return imageMap;
+}
+
+export async function resolveClothingItemImageUrls(
+  items: Array<{ id: string; image_path: string | null }>
+) {
+  const imageUrlMap = new Map<string, string | null>();
+  const legacyImageMap = await fetchLegacyImageMap(items.map((item) => item.id));
+
+  await Promise.all(
+    items.map(async (item) => {
+      const legacyImage = legacyImageMap.get(item.id);
+      const path = item.image_path ?? legacyImage?.path ?? null;
+      const bucketId = item.image_path ? supabaseImagesBucket : legacyImage?.bucketId;
+
+      imageUrlMap.set(item.id, await createSignedImageUrl(path, bucketId));
+    })
+  );
+
+  return imageUrlMap;
 }
 
 function mapClothingItemRow(
@@ -207,7 +266,7 @@ export async function fetchWardrobeItems(userId: string, categoryId?: string | n
   }
 
   const clothingItems = (data ?? []) as ClothingItemRow[];
-  const imageUrlMap = new Map<string, string | null>();
+  const imageUrlMap = await resolveClothingItemImageUrls(clothingItems);
   const itemIds = clothingItems.map((item) => item.id);
   const tagMap = new Map<string, { ids: string[]; names: string[] }>();
 
@@ -235,12 +294,6 @@ export async function fetchWardrobeItems(userId: string, categoryId?: string | n
     });
   }
 
-  await Promise.all(
-    clothingItems.map(async (item) => {
-      imageUrlMap.set(item.id, await createSignedImageUrl(item.image_path));
-    })
-  );
-
   return {
     items: clothingItems.map((item) =>
       mapClothingItemRow(item, imageUrlMap.get(item.id) ?? null, tagMap.get(item.id))
@@ -264,12 +317,12 @@ export async function fetchClothingItemDetail(itemId: string, userId: string) {
     return null;
   }
 
-  const [{ data: itemTags, error: itemTagsError }, imageUrl] = await Promise.all([
+  const [{ data: itemTags, error: itemTagsError }, imageUrlMap] = await Promise.all([
     supabase
       .from('clothing_item_tags')
       .select('clothing_item_id, tags(id, name)')
       .eq('clothing_item_id', itemId),
-    createSignedImageUrl(data.image_path),
+    resolveClothingItemImageUrls([{ id: data.id, image_path: data.image_path }]),
   ]);
 
   if (itemTagsError) {
@@ -287,7 +340,7 @@ export async function fetchClothingItemDetail(itemId: string, userId: string) {
     tagData.names.push(tag.name);
   });
 
-  return mapClothingItemRow(data, imageUrl, tagData);
+  return mapClothingItemRow(data, imageUrlMap.get(data.id) ?? null, tagData);
 }
 
 export async function createClothingItem(input: {

@@ -1,4 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -46,6 +47,7 @@ export default function WardrobeScreen() {
   const [materialFilter, setMaterialFilter] = useState('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [favoriteOnly, setFavoriteOnly] = useState(false);
+  const [viewMode, setViewMode] = useState<'catalog' | 'list'>('catalog');
   const [favoriteItemIds, setFavoriteItemIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -204,7 +206,7 @@ export default function WardrobeScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centered}>
-          <ActivityIndicator color="#8C5E3C" size="small" />
+          <ActivityIndicator color={colors.accent} size="small" />
           <Text style={styles.loadingText}>Loading your wardrobe...</Text>
         </View>
       </SafeAreaView>
@@ -230,33 +232,44 @@ export default function WardrobeScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <FlatList
+        key={viewMode}
         contentContainerStyle={styles.listContent}
         data={filteredItems}
         keyExtractor={(item) => item.id}
+        numColumns={viewMode === 'catalog' ? 2 : 1}
+        columnWrapperStyle={viewMode === 'catalog' ? styles.catalogRow : undefined}
         refreshControl={
           <RefreshControl
             onRefresh={() => {
               loadItems('refresh');
             }}
             refreshing={refreshing}
-            tintColor="#8C5E3C"
+            tintColor={colors.accent}
           />
         }
         renderItem={({ item }) => (
-          <Pressable onPress={() => router.push(`/items/${item.id}`)} style={styles.card}>
+          <Pressable
+            onPress={() => router.push(`/items/${item.id}`)}
+            style={[styles.card, viewMode === 'catalog' ? styles.catalogCard : styles.listCard]}
+          >
             <Pressable onPress={() => handleToggleFavorite(item.id)} style={styles.favoriteButton}>
               <Text style={styles.favoriteButtonText}>
                 {favoriteItemIds.includes(item.id) ? '♥' : '♡'}
               </Text>
             </Pressable>
-            {item.imageUrl ? (
-              <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
-            ) : (
-              <View style={styles.imageFallback}>
-                <Text style={styles.imageFallbackText}>No image</Text>
-              </View>
-            )}
-            <View style={styles.cardContent}>
+            <View style={viewMode === 'catalog' ? styles.catalogMedia : styles.listMedia}>
+              {item.imageUrl ? (
+                <Image
+                  source={{ uri: item.imageUrl }}
+                  style={viewMode === 'catalog' ? styles.itemImage : styles.listImage}
+                />
+              ) : (
+                <View style={viewMode === 'catalog' ? styles.imageFallback : styles.listImageFallback}>
+                  <Text style={styles.imageFallbackText}>No image</Text>
+                </View>
+              )}
+            </View>
+            <View style={[styles.cardContent, viewMode === 'list' && styles.listCardContent]}>
               <Text style={styles.itemName}>{item.name}</Text>
               <Text style={styles.itemMeta}>
                 {item.color?.trim() ? item.color : 'Color not set'}
@@ -273,6 +286,70 @@ export default function WardrobeScreen() {
             <Text style={styles.body}>
               Search and filter your wardrobe without losing sight of the details that matter.
             </Text>
+            <View style={styles.heroCard}>
+              <View style={styles.heroCopy}>
+                <Text style={styles.heroTitle}>Build your wardrobe</Text>
+                <Text style={styles.heroBody}>Add pieces, plan events, and jump back into Style AI.</Text>
+              </View>
+              <View style={styles.heroActions}>
+                <Pressable onPress={() => router.push('/(tabs)/add-item')} style={styles.heroSecondaryButton}>
+                  <Text style={styles.heroSecondaryButtonText}>Add item</Text>
+                </Pressable>
+                <Pressable onPress={() => router.push('/events/new')} style={styles.heroPrimaryButton}>
+                  <Text style={styles.heroPrimaryButtonText}>Plan event</Text>
+                </Pressable>
+                <Pressable onPress={() => router.push('/style-ai')} style={styles.heroSecondaryButton}>
+                  <Text style={styles.heroSecondaryButtonText}>Style AI</Text>
+                </Pressable>
+              </View>
+            </View>
+            <View style={styles.viewToggleRow}>
+              <Text style={styles.filterLabel}>View</Text>
+              <View style={styles.viewToggle}>
+                <Pressable
+                  onPress={() => setViewMode('catalog')}
+                  style={[
+                    styles.viewToggleButton,
+                    viewMode === 'catalog' && styles.viewToggleButtonActive,
+                  ]}
+                >
+                  <Ionicons
+                    color={viewMode === 'catalog' ? colors.accentText : colors.textMuted}
+                    name="grid-outline"
+                    size={16}
+                  />
+                  <Text
+                    style={[
+                      styles.viewToggleText,
+                      viewMode === 'catalog' && styles.viewToggleTextActive,
+                    ]}
+                  >
+                    Catalog
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setViewMode('list')}
+                  style={[
+                    styles.viewToggleButton,
+                    viewMode === 'list' && styles.viewToggleButtonActive,
+                  ]}
+                >
+                  <Ionicons
+                    color={viewMode === 'list' ? colors.accentText : colors.textMuted}
+                    name="list-outline"
+                    size={16}
+                  />
+                  <Text
+                    style={[
+                      styles.viewToggleText,
+                      viewMode === 'list' && styles.viewToggleTextActive,
+                    ]}
+                  >
+                    List
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
             <TextInput
               autoCapitalize="none"
               onChangeText={setSearchText}
@@ -494,13 +571,17 @@ export default function WardrobeScreen() {
 const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   listContent: {
     padding: 24,
     paddingBottom: 40,
     flexGrow: 1,
     gap: 12,
+  },
+  catalogRow: {
+    gap: 12,
+    justifyContent: 'space-between',
   },
   centered: {
     flex: 1,
@@ -515,6 +596,59 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
   header: {
     marginBottom: 18,
   },
+  heroCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 28,
+    borderWidth: 1,
+    marginTop: 16,
+    padding: 18,
+    gap: 16,
+  },
+  heroCopy: {
+    gap: 6,
+  },
+  heroTitle: {
+    color: colors.text,
+    fontSize: 32,
+    fontWeight: '800',
+  },
+  heroBody: {
+    color: colors.textMuted,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  heroActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  heroPrimaryButton: {
+    alignItems: 'center',
+    backgroundColor: colors.accent,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  heroPrimaryButtonText: {
+    color: colors.accentText,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  heroSecondaryButton: {
+    alignItems: 'center',
+    backgroundColor: colors.surfaceStrong,
+    borderColor: colors.border,
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  heroSecondaryButtonText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
   searchInput: {
     backgroundColor: colors.input,
     borderColor: colors.border,
@@ -528,6 +662,39 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
   },
   filterScroll: {
     marginTop: 16,
+  },
+  viewToggleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+  },
+  viewToggle: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: 'row',
+    padding: 4,
+  },
+  viewToggleButton: {
+    alignItems: 'center',
+    borderRadius: 14,
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  viewToggleButtonActive: {
+    backgroundColor: colors.accent,
+  },
+  viewToggleText: {
+    color: colors.textMuted,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  viewToggleTextActive: {
+    color: colors.accentText,
   },
   filterRow: {
     alignItems: 'center',
@@ -641,6 +808,14 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     overflow: 'hidden',
     position: 'relative',
   },
+  catalogCard: {
+    flex: 1,
+    minWidth: 0,
+  },
+  listCard: {
+    flexDirection: 'row',
+    minHeight: 156,
+  },
   favoriteButton: {
     position: 'absolute',
     right: 14,
@@ -663,9 +838,28 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
   cardContent: {
     paddingBottom: 18,
   },
+  listCardContent: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingRight: 18,
+  },
+  catalogMedia: {
+    width: '100%',
+  },
+  listMedia: {
+    padding: 12,
+    width: 136,
+  },
   itemImage: {
     backgroundColor: colors.overlay,
     height: 180,
+    width: '100%',
+  },
+  listImage: {
+    backgroundColor: colors.overlay,
+    borderRadius: 14,
+    height: '100%',
+    minHeight: 128,
     width: '100%',
   },
   imageFallback: {
@@ -673,6 +867,15 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     backgroundColor: colors.overlay,
     height: 180,
     justifyContent: 'center',
+    width: '100%',
+  },
+  listImageFallback: {
+    alignItems: 'center',
+    backgroundColor: colors.overlay,
+    borderRadius: 14,
+    height: '100%',
+    justifyContent: 'center',
+    minHeight: 128,
     width: '100%',
   },
   imageFallbackText: {

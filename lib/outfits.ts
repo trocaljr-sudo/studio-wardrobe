@@ -1,5 +1,10 @@
-import { supabase, supabaseImagesBucket } from './supabase';
-import { ensureActiveWardrobe, type ClothingItem, fetchWardrobeItems } from './wardrobe';
+import { supabase } from './supabase';
+import {
+  ensureActiveWardrobe,
+  type ClothingItem,
+  fetchWardrobeItems,
+  resolveClothingItemImageUrls,
+} from './wardrobe';
 
 export type Occasion = {
   id: string;
@@ -60,22 +65,6 @@ type OutfitTagRow = {
   outfit_id: string;
   tags: { id: string; name: string }[] | null;
 };
-
-async function createSignedImageUrl(path: string | null) {
-  if (!path) {
-    return null;
-  }
-
-  const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-    .from(supabaseImagesBucket)
-    .createSignedUrl(path, 60 * 60);
-
-  if (signedUrlError) {
-    return null;
-  }
-
-  return signedUrlData.signedUrl;
-}
 
 function mapClothingItem(
   clothingItem:
@@ -282,19 +271,26 @@ export async function fetchOutfits(userId: string) {
     tagObjectsByOutfit.set(row.outfit_id, [...existingObjects, ...values]);
   });
 
+  const previewCandidates = outfitRows.flatMap((outfit) =>
+    (itemsByOutfit.get(outfit.id) ?? [])
+      .map((row) => row.clothing_items?.[0])
+      .filter(Boolean)
+      .map((item) => ({
+        id: item!.id,
+        image_path: item!.image_path,
+      }))
+  );
+  const imageUrlMap = await resolveClothingItemImageUrls(previewCandidates);
   const previewUrlMap = new Map<string, string | null>();
 
-  await Promise.all(
-    outfitRows.map(async (outfit) => {
-      const firstItemImagePath =
-        itemsByOutfit
-          .get(outfit.id)
-          ?.map((row) => row.clothing_items?.[0]?.image_path ?? null)
-          .find(Boolean) ?? null;
+  outfitRows.forEach((outfit) => {
+    const previewUrl =
+      (itemsByOutfit.get(outfit.id) ?? [])
+        .map((row) => row.clothing_items?.[0]?.id)
+        .find((itemId) => itemId && imageUrlMap.get(itemId)) ?? null;
 
-      previewUrlMap.set(outfit.id, await createSignedImageUrl(firstItemImagePath));
-    })
-  );
+    previewUrlMap.set(outfit.id, previewUrl ? imageUrlMap.get(previewUrl) ?? null : null);
+  });
 
   return outfitRows.map((outfit) => ({
     id: outfit.id,
@@ -352,17 +348,14 @@ export async function fetchOutfitDetail(userId: string, outfitId: string) {
   }
 
   const outfitItemRows = (outfitItems ?? []) as OutfitItemRow[];
-  const itemImageUrls = new Map<string, string | null>();
-
-  await Promise.all(
-    outfitItemRows.map(async (row) => {
-      const clothingItem = row.clothing_items?.[0];
-      if (!clothingItem) {
-        return;
-      }
-
-      itemImageUrls.set(clothingItem.id, await createSignedImageUrl(clothingItem.image_path));
-    })
+  const itemImageUrls = await resolveClothingItemImageUrls(
+    outfitItemRows
+      .map((row) => row.clothing_items?.[0])
+      .filter(Boolean)
+      .map((item) => ({
+        id: item!.id,
+        image_path: item!.image_path,
+      }))
   );
 
   const items = outfitItemRows
@@ -371,7 +364,7 @@ export async function fetchOutfitDetail(userId: string, outfitId: string) {
     )
     .filter(Boolean) as ClothingItem[];
 
-  const previewUrl = await createSignedImageUrl(items[0]?.image_path ?? null);
+  const previewUrl = items.find((item) => item.imageUrl)?.imageUrl ?? null;
 
   const occasions =
     ((outfitOccasions ?? []) as OutfitOccasionRow[])
