@@ -1,4 +1,4 @@
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -240,7 +240,7 @@ export default function WardrobeScreen() {
           />
         }
         renderItem={({ item }) => (
-          <View style={styles.card}>
+          <Pressable onPress={() => router.push(`/items/${item.id}`)} style={styles.card}>
             <Pressable onPress={() => handleToggleFavorite(item.id)} style={styles.favoriteButton}>
               <Text style={styles.favoriteButtonText}>
                 {favoriteItemIds.includes(item.id) ? '♥' : '♡'}
@@ -262,7 +262,7 @@ export default function WardrobeScreen() {
               {item.brandName ? <Text style={styles.detailText}>{item.brandName}</Text> : null}
               {item.size ? <Text style={styles.detailText}>Size {item.size}</Text> : null}
             </View>
-          </View>
+          </Pressable>
         )}
         ListHeaderComponent={
           <View style={styles.header}>

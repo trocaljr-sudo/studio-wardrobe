@@ -62,6 +62,9 @@ type ClothingItemRow = {
   brands: { id: string; name: string }[] | null;
 };
 
+const clothingItemSelect =
+  'id, name, color, created_at, wardrobe_id, owner_id, image_path, size, material, category_id, brand_id, categories(id, name), brands(id, name)';
+
 function getFirstRelationName(
   relation: { id: string; name: string }[] | null | undefined
 ) {
@@ -74,6 +77,37 @@ function buildImagePath(userId: string, localUri: string, mimeType?: string | nu
   const extension = uriExtension || mimeExtension || 'jpg';
 
   return `${userId}/${Date.now()}.${extension}`;
+}
+
+async function createSignedImageUrl(path: string | null) {
+  if (!path) {
+    return null;
+  }
+
+  const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+    .from(supabaseImagesBucket)
+    .createSignedUrl(path, 60 * 60);
+
+  if (signedUrlError) {
+    return null;
+  }
+
+  return signedUrlData.signedUrl;
+}
+
+function mapClothingItemRow(
+  item: ClothingItemRow,
+  imageUrl: string | null,
+  tagData?: { ids: string[]; names: string[] }
+) {
+  return {
+    ...item,
+    imageUrl,
+    categoryName: getFirstRelationName(item.categories),
+    brandName: getFirstRelationName(item.brands),
+    tagIds: tagData?.ids ?? [],
+    tagNames: tagData?.names ?? [],
+  } as ClothingItem;
 }
 
 async function upsertProfile(userId: string) {
@@ -158,9 +192,7 @@ export async function fetchWardrobeItems(userId: string, categoryId?: string | n
 
   let query = supabase
     .from('clothing_items')
-    .select(
-      'id, name, color, created_at, wardrobe_id, owner_id, image_path, size, material, category_id, brand_id, categories(id, name), brands(id, name)'
-    )
+    .select(clothingItemSelect)
     .eq('owner_id', userId)
     .order('created_at', { ascending: false });
 
@@ -205,34 +237,57 @@ export async function fetchWardrobeItems(userId: string, categoryId?: string | n
 
   await Promise.all(
     clothingItems.map(async (item) => {
-      if (!item.image_path) {
-        imageUrlMap.set(item.id, null);
-        return;
-      }
-
-      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-        .from(supabaseImagesBucket)
-        .createSignedUrl(item.image_path, 60 * 60);
-
-      if (signedUrlError) {
-        imageUrlMap.set(item.id, null);
-        return;
-      }
-
-      imageUrlMap.set(item.id, signedUrlData.signedUrl);
+      imageUrlMap.set(item.id, await createSignedImageUrl(item.image_path));
     })
   );
 
   return {
-    items: clothingItems.map((item) => ({
-      ...item,
-      imageUrl: imageUrlMap.get(item.id) ?? null,
-      categoryName: getFirstRelationName(item.categories),
-      brandName: getFirstRelationName(item.brands),
-      tagIds: tagMap.get(item.id)?.ids ?? [],
-      tagNames: tagMap.get(item.id)?.names ?? [],
-    })) as ClothingItem[],
+    items: clothingItems.map((item) =>
+      mapClothingItemRow(item, imageUrlMap.get(item.id) ?? null, tagMap.get(item.id))
+    ) as ClothingItem[],
   };
+}
+
+export async function fetchClothingItemDetail(itemId: string, userId: string) {
+  const { data, error } = await supabase
+    .from('clothing_items')
+    .select(clothingItemSelect)
+    .eq('id', itemId)
+    .eq('owner_id', userId)
+    .maybeSingle<ClothingItemRow>();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  const [{ data: itemTags, error: itemTagsError }, imageUrl] = await Promise.all([
+    supabase
+      .from('clothing_item_tags')
+      .select('clothing_item_id, tags(id, name)')
+      .eq('clothing_item_id', itemId),
+    createSignedImageUrl(data.image_path),
+  ]);
+
+  if (itemTagsError) {
+    throw itemTagsError;
+  }
+
+  const tagData = { ids: [] as string[], names: [] as string[] };
+  (itemTags ?? []).forEach((row: any) => {
+    const tag = row.tags?.[0];
+    if (!tag) {
+      return;
+    }
+
+    tagData.ids.push(tag.id);
+    tagData.names.push(tag.name);
+  });
+
+  return mapClothingItemRow(data, imageUrl, tagData);
 }
 
 export async function createClothingItem(input: {
@@ -282,9 +337,7 @@ export async function createClothingItem(input: {
   const { data: clothingItem, error } = await supabase
     .from('clothing_items')
     .insert(payload)
-    .select(
-      'id, name, color, created_at, wardrobe_id, owner_id, image_path, size, material, category_id, brand_id, categories(id, name), brands(id, name)'
-    )
+    .select(clothingItemSelect)
     .single<ClothingItemRow>();
 
   if (error) {
@@ -314,13 +367,137 @@ export async function createClothingItem(input: {
   }
 
   return {
-    ...clothingItem,
-    imageUrl: null,
-    categoryName: getFirstRelationName(clothingItem.categories),
-    brandName: getFirstRelationName(clothingItem.brands),
+    ...mapClothingItemRow(clothingItem, null),
     tagIds: input.tagIds ?? [],
     tagNames: [],
-  } as ClothingItem;
+  };
+}
+
+export async function updateClothingItem(input: {
+  itemId: string;
+  ownerId: string;
+  name: string;
+  categoryId: string | null;
+  color?: string;
+  brandId?: string | null;
+  size?: string;
+  material?: string;
+  imageUri?: string | null;
+  mimeType?: string | null;
+  currentImagePath?: string | null;
+}) {
+  const existing = await fetchClothingItemDetail(input.itemId, input.ownerId);
+
+  if (!existing) {
+    throw new Error('This item could not be found.');
+  }
+
+  let nextImagePath = existing.image_path;
+  let replacedImagePath: string | null = null;
+
+  if (input.imageUri) {
+    const imageResponse = await fetch(input.imageUri);
+    const imageBuffer = await imageResponse.arrayBuffer();
+    nextImagePath = buildImagePath(input.ownerId, input.imageUri, input.mimeType);
+
+    const { error: uploadError } = await supabase.storage
+      .from(supabaseImagesBucket)
+      .upload(nextImagePath, imageBuffer, {
+        contentType: input.mimeType ?? 'image/jpeg',
+        upsert: false,
+      });
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    replacedImagePath = existing.image_path;
+  }
+
+  const { data, error } = await supabase
+    .from('clothing_items')
+    .update({
+      name: input.name.trim(),
+      category_id: input.categoryId,
+      color: input.color?.trim() ? input.color.trim() : null,
+      brand_id: input.brandId ?? null,
+      size: input.size?.trim() ? input.size.trim() : null,
+      material: input.material?.trim() ? input.material.trim() : null,
+      image_path: nextImagePath,
+    })
+    .eq('id', input.itemId)
+    .eq('owner_id', input.ownerId)
+    .select(clothingItemSelect)
+    .maybeSingle<ClothingItemRow>();
+
+  if (error) {
+    if (input.imageUri && nextImagePath && nextImagePath !== existing.image_path) {
+      await supabase.storage.from(supabaseImagesBucket).remove([nextImagePath]);
+    }
+    throw error;
+  }
+
+  if (!data) {
+    if (input.imageUri && nextImagePath && nextImagePath !== existing.image_path) {
+      await supabase.storage.from(supabaseImagesBucket).remove([nextImagePath]);
+    }
+    throw new Error('This item could not be updated.');
+  }
+
+  if (replacedImagePath) {
+    await supabase.storage.from(supabaseImagesBucket).remove([replacedImagePath]);
+  }
+
+  const imageUrl = await createSignedImageUrl(data.image_path);
+
+  return mapClothingItemRow(data, imageUrl, {
+    ids: existing.tagIds,
+    names: existing.tagNames,
+  });
+}
+
+export async function deleteClothingItem(itemId: string, ownerId: string) {
+  const existing = await fetchClothingItemDetail(itemId, ownerId);
+
+  if (!existing) {
+    throw new Error('This item could not be found.');
+  }
+
+  const { count, error: usageError } = await supabase
+    .from('outfit_items')
+    .select('outfit_id', { count: 'exact', head: true })
+    .eq('clothing_item_id', itemId);
+
+  if (usageError) {
+    throw usageError;
+  }
+
+  if ((count ?? 0) > 0) {
+    throw new Error('Remove this item from any outfits before deleting it.');
+  }
+
+  const { error: deleteTagError } = await supabase
+    .from('clothing_item_tags')
+    .delete()
+    .eq('clothing_item_id', itemId);
+
+  if (deleteTagError) {
+    throw deleteTagError;
+  }
+
+  const { error: deleteError } = await supabase
+    .from('clothing_items')
+    .delete()
+    .eq('id', itemId)
+    .eq('owner_id', ownerId);
+
+  if (deleteError) {
+    throw deleteError;
+  }
+
+  if (existing.image_path) {
+    await supabase.storage.from(supabaseImagesBucket).remove([existing.image_path]);
+  }
 }
 
 export async function fetchCategories() {
