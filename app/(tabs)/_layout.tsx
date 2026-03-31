@@ -2,9 +2,12 @@ import { Redirect, Tabs } from 'expo-router';
 import { ActivityIndicator, SafeAreaView, StyleSheet, View } from 'react-native';
 
 import { useSession } from '../../lib/session';
+import { useTheme } from '../../lib/theme';
 
 export default function TabsLayout() {
   const { initialized, session } = useSession();
+  const { colors, isDark } = useTheme();
+  const styles = createStyles(colors);
 
   if (!initialized) {
     return (
@@ -24,21 +27,29 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerStyle: {
-          backgroundColor: '#F6F1EA',
+          backgroundColor: colors.backgroundAlt,
         },
         headerTitleStyle: {
-          color: '#201A17',
+          color: colors.text,
           fontWeight: '700',
         },
-        headerTintColor: '#201A17',
-        tabBarActiveTintColor: '#8C5E3C',
-        tabBarInactiveTintColor: '#8E837A',
+        headerShadowVisible: false,
+        headerTintColor: colors.text,
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors.textSubtle,
         tabBarStyle: {
-          backgroundColor: '#FFFDF9',
-          borderTopColor: '#E7D8CA',
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          height: 88,
+          paddingBottom: 12,
+          paddingTop: 10,
         },
         sceneStyle: {
-          backgroundColor: '#F6F1EA',
+          backgroundColor: colors.background,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '700',
         },
       }}
     >
@@ -75,21 +86,22 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: 'Settings',
         }}
       />
     </Tabs>
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F6F1EA',
-  },
-  loading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    loading: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+  });

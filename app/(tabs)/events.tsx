@@ -14,6 +14,7 @@ import {
 
 import { fetchEvents, type EventSummary } from '../../lib/events';
 import { useSession } from '../../lib/session';
+import { useTheme } from '../../lib/theme';
 
 function formatEventDate(date: string | null, time: string | null) {
   if (!date) {
@@ -36,6 +37,8 @@ function formatEventDate(date: string | null, time: string | null) {
 
 export default function EventsScreen() {
   const { user } = useSession();
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const [events, setEvents] = useState<EventSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -176,10 +179,10 @@ export default function EventsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F6F1EA',
+    backgroundColor: colors.background,
   },
   listContent: {
     paddingHorizontal: 20,
@@ -194,53 +197,53 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#201A17',
+    color: colors.text,
   },
   body: {
     fontSize: 15,
     lineHeight: 22,
-    color: '#5E534A',
+    color: colors.textMuted,
   },
   primaryButton: {
     alignSelf: 'flex-start',
-    backgroundColor: '#8C5E3C',
+    backgroundColor: colors.accent,
     paddingHorizontal: 18,
     paddingVertical: 12,
     borderRadius: 14,
   },
   primaryButtonText: {
-    color: '#FFF8F1',
+    color: colors.accentText,
     fontWeight: '700',
   },
   sectionTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#3B2F2A',
+    color: colors.text,
     marginBottom: 10,
     marginTop: 8,
   },
   card: {
-    backgroundColor: '#FFFCF7',
+    backgroundColor: colors.surface,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#E7D8CA',
+    borderColor: colors.border,
     overflow: 'hidden',
     marginBottom: 14,
   },
   image: {
     width: '100%',
     height: 170,
-    backgroundColor: '#E9DED4',
+    backgroundColor: colors.overlay,
   },
   imageFallback: {
     width: '100%',
     height: 170,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EDE4DB',
+    backgroundColor: colors.overlay,
   },
   imageFallbackText: {
-    color: '#7A6E66',
+    color: colors.textSubtle,
     fontWeight: '600',
   },
   cardContent: {
@@ -250,18 +253,18 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#201A17',
+    color: colors.text,
   },
   cardMeta: {
-    color: '#6A6058',
+    color: colors.textMuted,
     fontSize: 14,
   },
   cardDetail: {
-    color: '#4E443C',
+    color: colors.textMuted,
     fontSize: 14,
   },
   cardDetailMuted: {
-    color: '#8B8178',
+    color: colors.textSubtle,
     fontSize: 14,
   },
   emptyState: {
@@ -272,24 +275,24 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#2C221E',
+    color: colors.text,
     textAlign: 'center',
   },
   emptyBody: {
-    color: '#6A6058',
+    color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 21,
   },
   emptyButton: {
     alignItems: 'center',
-    backgroundColor: '#201A17',
+    backgroundColor: colors.accent,
     borderRadius: 14,
     marginTop: 14,
     paddingHorizontal: 18,
     paddingVertical: 12,
   },
   emptyButtonText: {
-    color: '#F7F1EB',
+    color: colors.accentText,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -300,6 +303,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   helperText: {
-    color: '#6A6058',
+    color: colors.textMuted,
   },
 });

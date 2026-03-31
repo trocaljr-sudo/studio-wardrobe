@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 
 import { useSession } from '../../lib/session';
+import { useTheme } from '../../lib/theme';
 import {
   type Brand,
   type Category,
@@ -27,6 +28,8 @@ import {
 
 export default function AddItemScreen() {
   const { user } = useSession();
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const [name, setName] = useState('');
   const [color, setColor] = useState('');
   const [size, setSize] = useState('');
@@ -223,28 +226,28 @@ export default function AddItemScreen() {
             <TextInput
               onChangeText={setName}
               placeholder="Item name"
-              placeholderTextColor="#8B8B95"
+              placeholderTextColor={colors.placeholder}
               style={styles.input}
               value={name}
             />
             <TextInput
               onChangeText={setColor}
               placeholder="Color"
-              placeholderTextColor="#8B8B95"
+              placeholderTextColor={colors.placeholder}
               style={styles.input}
               value={color}
             />
             <TextInput
               onChangeText={setSize}
               placeholder="Size"
-              placeholderTextColor="#8B8B95"
+              placeholderTextColor={colors.placeholder}
               style={styles.input}
               value={size}
             />
             <TextInput
               onChangeText={setMaterial}
               placeholder="Material"
-              placeholderTextColor="#8B8B95"
+              placeholderTextColor={colors.placeholder}
               style={styles.input}
               value={material}
             />
@@ -377,10 +380,10 @@ export default function AddItemScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F6F1EA',
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
@@ -390,13 +393,13 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
   },
   title: {
-    color: '#201A17',
+    color: colors.text,
     fontSize: 30,
     fontWeight: '700',
     marginBottom: 12,
   },
   body: {
-    color: '#5D534C',
+    color: colors.textMuted,
     fontSize: 16,
     lineHeight: 24,
     marginBottom: 18,
@@ -409,8 +412,8 @@ const styles = StyleSheet.create({
   },
   imagePlaceholder: {
     alignItems: 'center',
-    backgroundColor: '#FFFDF9',
-    borderColor: '#E7D8CA',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderRadius: 18,
     borderStyle: 'dashed',
     borderWidth: 1,
@@ -419,13 +422,13 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   imagePlaceholderTitle: {
-    color: '#201A17',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 8,
   },
   imagePlaceholderBody: {
-    color: '#6B615A',
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
@@ -456,11 +459,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   input: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E7D8CA',
+    backgroundColor: colors.input,
+    borderColor: colors.border,
     borderRadius: 16,
     borderWidth: 1,
-    color: '#201A17',
+    color: colors.text,
     fontSize: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -469,7 +472,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sectionLabel: {
-    color: '#201A17',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -483,42 +486,42 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   categoryChip: {
-    backgroundColor: '#FFFDF9',
-    borderColor: '#E7D8CA',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   categoryChipActive: {
-    backgroundColor: '#201A17',
-    borderColor: '#201A17',
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   categoryChipText: {
-    color: '#6B615A',
+    color: colors.textMuted,
     fontSize: 14,
     fontWeight: '600',
   },
   categoryChipTextActive: {
-    color: '#F7F1EB',
+    color: colors.accentText,
   },
   categoryHelper: {
-    color: '#6B615A',
+    color: colors.textMuted,
     fontSize: 13,
   },
   error: {
-    color: '#A13737',
+    color: colors.danger,
     fontSize: 14,
     lineHeight: 20,
   },
   success: {
-    color: '#2F6D45',
+    color: colors.success,
     fontSize: 14,
     lineHeight: 20,
   },
   button: {
     alignItems: 'center',
-    backgroundColor: '#201A17',
+    backgroundColor: colors.accent,
     borderRadius: 16,
     marginTop: 4,
     paddingVertical: 15,
@@ -527,7 +530,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   buttonText: {
-    color: '#F7F1EB',
+    color: colors.accentText,
     fontSize: 16,
     fontWeight: '700',
   },

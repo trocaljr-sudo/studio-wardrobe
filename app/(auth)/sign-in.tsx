@@ -12,12 +12,15 @@ import {
 } from 'react-native';
 
 import { supabase } from '../../lib/supabase';
+import { useTheme } from '../../lib/theme';
 
 export default function SignInScreen() {
+  const { colors } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const styles = createStyles(colors);
 
   const formatAuthError = (message: string) => {
     const normalized = message.toLowerCase();
@@ -81,7 +84,7 @@ export default function SignInScreen() {
               keyboardType="email-address"
               onChangeText={setEmail}
               placeholder="Email"
-              placeholderTextColor="#8B8B95"
+              placeholderTextColor={colors.placeholder}
               style={styles.input}
               value={email}
             />
@@ -89,7 +92,7 @@ export default function SignInScreen() {
               autoCapitalize="none"
               onChangeText={setPassword}
               placeholder="Password"
-              placeholderTextColor="#8B8B95"
+              placeholderTextColor={colors.placeholder}
               secureTextEntry
               style={styles.input}
               value={password}
@@ -115,74 +118,75 @@ export default function SignInScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F6F1EA',
-  },
-  container: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    gap: 18,
-  },
-  eyebrow: {
-    color: '#8C5E3C',
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 1.4,
-    textTransform: 'uppercase',
-  },
-  title: {
-    color: '#201A17',
-    fontSize: 36,
-    fontWeight: '700',
-  },
-  subtitle: {
-    color: '#5D534C',
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  form: {
-    gap: 12,
-    marginTop: 10,
-  },
-  input: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E7D8CA',
-    borderRadius: 16,
-    borderWidth: 1,
-    color: '#201A17',
-    fontSize: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  primaryButton: {
-    alignItems: 'center',
-    backgroundColor: '#201A17',
-    borderRadius: 16,
-    marginTop: 8,
-    paddingVertical: 15,
-  },
-  primaryButtonDisabled: {
-    opacity: 0.7,
-  },
-  primaryButtonText: {
-    color: '#F7F1EB',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  link: {
-    color: '#8C5E3C',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  error: {
-    color: '#A13737',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    container: {
+      flex: 1,
+    },
+    content: {
+      flex: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+      gap: 18,
+    },
+    eyebrow: {
+      color: colors.accent,
+      fontSize: 14,
+      fontWeight: '700',
+      letterSpacing: 1.4,
+      textTransform: 'uppercase',
+    },
+    title: {
+      color: colors.text,
+      fontSize: 42,
+      fontWeight: '800',
+    },
+    subtitle: {
+      color: colors.textMuted,
+      fontSize: 16,
+      lineHeight: 24,
+    },
+    form: {
+      gap: 12,
+      marginTop: 10,
+    },
+    input: {
+      backgroundColor: colors.input,
+      borderColor: colors.border,
+      borderRadius: 18,
+      borderWidth: 1,
+      color: colors.text,
+      fontSize: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+    },
+    primaryButton: {
+      alignItems: 'center',
+      backgroundColor: colors.accent,
+      borderRadius: 18,
+      marginTop: 8,
+      paddingVertical: 15,
+    },
+    primaryButtonDisabled: {
+      opacity: 0.7,
+    },
+    primaryButtonText: {
+      color: colors.accentText,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    link: {
+      color: colors.accent,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    error: {
+      color: colors.danger,
+      fontSize: 14,
+      lineHeight: 20,
+    },
+  });

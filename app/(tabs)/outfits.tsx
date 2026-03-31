@@ -18,10 +18,13 @@ import { fetchOccasions, fetchOutfits, type Occasion, type OutfitSummary } from 
 import { fetchPersonalizationSnapshot, toggleFavoriteOutfit } from '../../lib/personalization';
 import { fetchRecommendations } from '../../lib/recommendations';
 import { useSession } from '../../lib/session';
+import { useTheme } from '../../lib/theme';
 import { fetchTags, type Tag } from '../../lib/wardrobe';
 
 export default function OutfitsScreen() {
   const { user } = useSession();
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const [outfits, setOutfits] = useState<OutfitSummary[]>([]);
   const [occasions, setOccasions] = useState<Occasion[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -227,7 +230,7 @@ export default function OutfitsScreen() {
               autoCapitalize="none"
               onChangeText={setSearchText}
               placeholder="Search outfits, occasions, or tags..."
-              placeholderTextColor="#8B8B95"
+              placeholderTextColor={colors.placeholder}
               style={styles.searchInput}
               value={searchText}
             />
@@ -385,10 +388,10 @@ export default function OutfitsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F6F1EA',
+    backgroundColor: colors.background,
   },
   listContent: {
     padding: 24,
@@ -403,18 +406,18 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   helperText: {
-    color: '#5D534C',
+    color: colors.textMuted,
     fontSize: 15,
   },
   header: {
     marginBottom: 18,
   },
   searchInput: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E7D8CA',
+    backgroundColor: colors.input,
+    borderColor: colors.border,
     borderRadius: 16,
     borderWidth: 1,
-    color: '#201A17',
+    color: colors.text,
     fontSize: 16,
     marginTop: 16,
     paddingHorizontal: 16,
@@ -429,14 +432,14 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   filterLabel: {
-    color: '#6B615A',
+    color: colors.textMuted,
     fontSize: 13,
     fontWeight: '700',
     textTransform: 'uppercase',
   },
   filterChip: {
-    backgroundColor: '#FFFDF9',
-    borderColor: '#E7D8CA',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderRadius: 999,
     borderWidth: 1,
     overflow: 'hidden',
@@ -444,16 +447,16 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   filterChipActive: {
-    backgroundColor: '#201A17',
-    borderColor: '#201A17',
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   filterChipText: {
-    color: '#6B615A',
+    color: colors.textMuted,
     fontSize: 14,
     fontWeight: '600',
   },
   filterChipTextActive: {
-    color: '#F7F1EB',
+    color: colors.accentText,
   },
   activeFilters: {
     flexDirection: 'row',
@@ -462,9 +465,9 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   activeFilterText: {
-    backgroundColor: '#EFE6DE',
+    backgroundColor: colors.surfaceStrong,
     borderRadius: 999,
-    color: '#6B615A',
+    color: colors.textMuted,
     fontSize: 13,
     overflow: 'hidden',
     paddingHorizontal: 12,
@@ -472,51 +475,51 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     alignItems: 'center',
-    backgroundColor: '#201A17',
+    backgroundColor: colors.text,
     borderRadius: 999,
     justifyContent: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   clearButtonText: {
-    color: '#F7F1EB',
+    color: colors.accentText,
     fontSize: 13,
     fontWeight: '700',
   },
   title: {
-    color: '#201A17',
+    color: colors.text,
     fontSize: 30,
     fontWeight: '700',
     marginBottom: 12,
   },
   body: {
-    color: '#5D534C',
+    color: colors.textMuted,
     fontSize: 16,
     lineHeight: 24,
   },
   createButton: {
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: '#201A17',
+    backgroundColor: colors.accent,
     borderRadius: 16,
     marginTop: 18,
     paddingHorizontal: 18,
     paddingVertical: 14,
   },
   createButtonText: {
-    color: '#F7F1EB',
+    color: colors.accentText,
     fontSize: 15,
     fontWeight: '700',
   },
   error: {
-    color: '#A13737',
+    color: colors.danger,
     fontSize: 14,
     lineHeight: 20,
     marginTop: 12,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E7D8CA',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderRadius: 18,
     borderWidth: 1,
     overflow: 'hidden',
@@ -532,10 +535,10 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFF7EF',
+    backgroundColor: colors.surfaceStrong,
   },
   favoriteButtonText: {
-    color: '#9C3E4E',
+    color: colors.accent,
     fontSize: 18,
     fontWeight: '700',
   },
@@ -545,13 +548,13 @@ const styles = StyleSheet.create({
   },
   imageFallback: {
     alignItems: 'center',
-    backgroundColor: '#EFE6DE',
+    backgroundColor: colors.overlay,
     height: 180,
     justifyContent: 'center',
     width: '100%',
   },
   imageFallbackText: {
-    color: '#8E837A',
+    color: colors.textSubtle,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -559,17 +562,17 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   cardTitle: {
-    color: '#201A17',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 6,
   },
   cardMeta: {
-    color: '#6B615A',
+    color: colors.textMuted,
     fontSize: 15,
   },
   cardDetail: {
-    color: '#8C5E3C',
+    color: colors.accent,
     fontSize: 14,
     marginTop: 6,
   },
@@ -579,13 +582,13 @@ const styles = StyleSheet.create({
     paddingTop: 48,
   },
   emptyTitle: {
-    color: '#201A17',
+    color: colors.text,
     fontSize: 22,
     fontWeight: '700',
     marginBottom: 10,
   },
   emptyBody: {
-    color: '#5D534C',
+    color: colors.textMuted,
     fontSize: 15,
     lineHeight: 22,
     maxWidth: 280,
@@ -593,14 +596,14 @@ const styles = StyleSheet.create({
   },
   emptyButton: {
     alignItems: 'center',
-    backgroundColor: '#201A17',
+    backgroundColor: colors.accent,
     borderRadius: 14,
     marginTop: 16,
     paddingHorizontal: 18,
     paddingVertical: 12,
   },
   emptyButtonText: {
-    color: '#F7F1EB',
+    color: colors.accentText,
     fontSize: 14,
     fontWeight: '700',
   },

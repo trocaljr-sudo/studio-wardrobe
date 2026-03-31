@@ -2,9 +2,12 @@ import { Redirect } from 'expo-router';
 import { ActivityIndicator, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
 import { useSession } from '../lib/session';
+import { useTheme } from '../lib/theme';
 
 export default function IndexScreen() {
   const { initialized, session } = useSession();
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
 
   if (!initialized) {
     return (
@@ -24,20 +27,21 @@ export default function IndexScreen() {
   return <Redirect href="/(auth)/sign-in" />;
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F6F1EA',
-  },
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 14,
-    padding: 24,
-  },
-  text: {
-    color: '#5D534C',
-    fontSize: 15,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    container: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 14,
+      padding: 24,
+    },
+    text: {
+      color: colors.textMuted,
+      fontSize: 15,
+    },
+  });
