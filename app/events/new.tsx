@@ -14,9 +14,11 @@ import {
   View,
 } from 'react-native';
 
+import { AmbientBackground } from '../../lib/ambient-background';
 import { createEvent } from '../../lib/events';
 import { fetchOccasions, fetchOutfits, type Occasion, type OutfitSummary } from '../../lib/outfits';
 import { useSession } from '../../lib/session';
+import { useTheme } from '../../lib/theme';
 
 function isValidDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -54,6 +56,8 @@ function sortOutfits(outfits: OutfitSummary[], occasionId: string | null) {
 
 export default function NewEventScreen() {
   const { user } = useSession();
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const [title, setTitle] = useState('');
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
@@ -162,7 +166,7 @@ export default function NewEventScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centered}>
-          <ActivityIndicator color="#8C5E3C" size="small" />
+          <ActivityIndicator color={colors.accent} size="small" />
           <Text style={styles.helperText}>Loading event planner...</Text>
         </View>
       </SafeAreaView>
@@ -171,6 +175,7 @@ export default function NewEventScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AmbientBackground />
       <KeyboardAvoidingView
         behavior={Platform.select({ ios: 'padding', android: undefined })}
         style={styles.container}
@@ -188,7 +193,7 @@ export default function NewEventScreen() {
           <TextInput
             onChangeText={setTitle}
             placeholder="Event title"
-            placeholderTextColor="#8B8B95"
+            placeholderTextColor={colors.placeholder}
             style={styles.input}
             value={title}
           />
@@ -196,7 +201,7 @@ export default function NewEventScreen() {
             autoCapitalize="none"
             onChangeText={setScheduledDate}
             placeholder="Date (YYYY-MM-DD)"
-            placeholderTextColor="#8B8B95"
+            placeholderTextColor={colors.placeholder}
             style={styles.input}
             value={scheduledDate}
           />
@@ -204,7 +209,7 @@ export default function NewEventScreen() {
             autoCapitalize="none"
             onChangeText={setScheduledTime}
             placeholder="Time (optional, HH:MM)"
-            placeholderTextColor="#8B8B95"
+            placeholderTextColor={colors.placeholder}
             style={styles.input}
             value={scheduledTime}
           />
@@ -212,7 +217,7 @@ export default function NewEventScreen() {
             multiline
             onChangeText={setNotes}
             placeholder="Notes (optional)"
-            placeholderTextColor="#8B8B95"
+            placeholderTextColor={colors.placeholder}
             style={[styles.input, styles.textArea]}
             value={notes}
           />
@@ -306,10 +311,10 @@ export default function NewEventScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F6F1EA',
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
@@ -325,26 +330,26 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   backText: {
-    color: '#8C5E3C',
+    color: colors.accent,
     fontWeight: '600',
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#201A17',
+    color: colors.text,
   },
   body: {
-    color: '#5E534A',
+    color: colors.textMuted,
     lineHeight: 22,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#D9C8B7',
-    backgroundColor: '#FFFCF8',
+    borderColor: colors.border,
+    backgroundColor: colors.input,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    color: '#201A17',
+    color: colors.text,
     fontSize: 16,
   },
   textArea: {
@@ -357,7 +362,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#2C221E',
+    color: colors.text,
   },
   chipWrap: {
     flexDirection: 'row',
@@ -366,22 +371,22 @@ const styles = StyleSheet.create({
   },
   chip: {
     borderWidth: 1,
-    borderColor: '#D7C6B7',
-    backgroundColor: '#FFFCF7',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 999,
   },
   chipSelected: {
-    borderColor: '#8C5E3C',
-    backgroundColor: '#E8D8CA',
+    borderColor: colors.accent,
+    backgroundColor: colors.accentMuted,
   },
   chipText: {
-    color: '#5D524A',
+    color: colors.text,
     fontWeight: '600',
   },
   chipTextSelected: {
-    color: '#5A361A',
+    color: colors.accent,
   },
   outfitCard: {
     flexDirection: 'row',
@@ -389,31 +394,31 @@ const styles = StyleSheet.create({
     gap: 14,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E3D2C4',
-    backgroundColor: '#FFFCF7',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     padding: 12,
   },
   outfitCardSelected: {
-    borderColor: '#8C5E3C',
-    backgroundColor: '#F5EADF',
+    borderColor: colors.accent,
+    backgroundColor: colors.accentMuted,
   },
   outfitImage: {
     width: 84,
     height: 84,
     borderRadius: 14,
-    backgroundColor: '#E8DDD2',
+    backgroundColor: colors.surfaceStrong,
   },
   outfitPlaceholder: {
     width: 84,
     height: 84,
     borderRadius: 14,
-    backgroundColor: '#EDE4DB',
+    backgroundColor: colors.surfaceStrong,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 8,
   },
   outfitPlaceholderText: {
-    color: '#7A6E66',
+    color: colors.textSubtle,
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -424,24 +429,24 @@ const styles = StyleSheet.create({
   outfitName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#231B17',
+    color: colors.text,
   },
   outfitMeta: {
-    color: '#6A6058',
+    color: colors.textMuted,
     lineHeight: 20,
   },
   error: {
-    color: '#A13D30',
+    color: colors.danger,
     lineHeight: 20,
   },
   primaryButton: {
-    backgroundColor: '#8C5E3C',
+    backgroundColor: colors.accent,
     borderRadius: 16,
     paddingVertical: 15,
     alignItems: 'center',
   },
   primaryButtonText: {
-    color: '#FFF8F1',
+    color: colors.accentText,
     fontWeight: '700',
     fontSize: 16,
   },
@@ -455,6 +460,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   helperText: {
-    color: '#6A6058',
+    color: colors.textMuted,
   },
 });

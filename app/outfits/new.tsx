@@ -14,8 +14,10 @@ import {
   View,
 } from 'react-native';
 
+import { AmbientBackground } from '../../lib/ambient-background';
 import { createOutfit, fetchOccasions, fetchSelectableClothingItems } from '../../lib/outfits';
 import { useSession } from '../../lib/session';
+import { useTheme } from '../../lib/theme';
 import { type ClothingItem, type Tag, fetchTags } from '../../lib/wardrobe';
 
 type Occasion = {
@@ -25,6 +27,8 @@ type Occasion = {
 
 export default function NewOutfitScreen() {
   const { user } = useSession();
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [items, setItems] = useState<ClothingItem[]>([]);
@@ -138,7 +142,7 @@ export default function NewOutfitScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centered}>
-          <ActivityIndicator color="#8C5E3C" size="small" />
+          <ActivityIndicator color={colors.accent} size="small" />
           <Text style={styles.helperText}>Loading outfit builder...</Text>
         </View>
       </SafeAreaView>
@@ -147,6 +151,7 @@ export default function NewOutfitScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AmbientBackground />
       <KeyboardAvoidingView
         behavior={Platform.select({ ios: 'padding', android: undefined })}
         style={styles.container}
@@ -164,7 +169,7 @@ export default function NewOutfitScreen() {
           <TextInput
             onChangeText={setName}
             placeholder="Outfit name"
-            placeholderTextColor="#8B8B95"
+            placeholderTextColor={colors.placeholder}
             style={styles.input}
             value={name}
           />
@@ -172,7 +177,7 @@ export default function NewOutfitScreen() {
             multiline
             onChangeText={setDescription}
             placeholder="Description or notes"
-            placeholderTextColor="#8B8B95"
+            placeholderTextColor={colors.placeholder}
             style={[styles.input, styles.textArea]}
             value={description}
           />
@@ -318,10 +323,10 @@ export default function NewOutfitScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F6F1EA',
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
@@ -337,35 +342,35 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   helperText: {
-    color: '#5D534C',
+    color: colors.textMuted,
     fontSize: 15,
   },
   backButton: {
     marginBottom: 16,
   },
   backText: {
-    color: '#8C5E3C',
+    color: colors.accent,
     fontSize: 15,
     fontWeight: '600',
   },
   title: {
-    color: '#201A17',
+    color: colors.text,
     fontSize: 30,
     fontWeight: '700',
     marginBottom: 12,
   },
   body: {
-    color: '#5D534C',
+    color: colors.textMuted,
     fontSize: 16,
     lineHeight: 24,
     marginBottom: 18,
   },
   input: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E7D8CA',
+    backgroundColor: colors.input,
+    borderColor: colors.border,
     borderRadius: 16,
     borderWidth: 1,
-    color: '#201A17',
+    color: colors.text,
     fontSize: 16,
     marginBottom: 12,
     paddingHorizontal: 16,
@@ -376,8 +381,8 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   selectedSummaryCard: {
-    backgroundColor: '#FFFDF9',
-    borderColor: '#E7D8CA',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderRadius: 20,
     borderWidth: 1,
     marginTop: 8,
@@ -390,7 +395,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   selectedCount: {
-    color: '#8C5E3C',
+    color: colors.accent,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -399,8 +404,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   selectedItemCard: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E7D8CA',
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.border,
     borderRadius: 16,
     borderWidth: 1,
     overflow: 'hidden',
@@ -412,13 +417,13 @@ const styles = StyleSheet.create({
   },
   selectedItemImageFallback: {
     alignItems: 'center',
-    backgroundColor: '#EFE6DE',
+    backgroundColor: colors.surfaceStrong,
     height: 88,
     justifyContent: 'center',
     width: '100%',
   },
   selectedItemFallbackText: {
-    color: '#8E837A',
+    color: colors.textSubtle,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -428,16 +433,16 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   selectedItemName: {
-    color: '#201A17',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '700',
   },
   selectedItemMeta: {
-    color: '#6B615A',
+    color: colors.textMuted,
     fontSize: 12,
   },
   removeSelectedText: {
-    color: '#8C5E3C',
+    color: colors.accent,
     fontSize: 12,
     fontWeight: '700',
     paddingHorizontal: 12,
@@ -445,7 +450,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   emptySelectionText: {
-    color: '#6B615A',
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -453,7 +458,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   sectionTitle: {
-    color: '#201A17',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 12,
@@ -464,15 +469,15 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   itemCard: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E7D8CA',
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.border,
     borderRadius: 18,
     borderWidth: 1,
     overflow: 'hidden',
     width: '47%',
   },
   itemCardSelected: {
-    borderColor: '#201A17',
+    borderColor: colors.accent,
     borderWidth: 2,
   },
   itemImage: {
@@ -481,59 +486,59 @@ const styles = StyleSheet.create({
   },
   itemImagePlaceholder: {
     alignItems: 'center',
-    backgroundColor: '#EFE6DE',
+    backgroundColor: colors.surfaceStrong,
     height: 120,
     justifyContent: 'center',
     width: '100%',
   },
   itemImagePlaceholderText: {
-    color: '#8E837A',
+    color: colors.textSubtle,
     fontSize: 13,
     fontWeight: '600',
   },
   itemName: {
-    color: '#201A17',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '700',
     paddingHorizontal: 12,
     paddingTop: 12,
   },
   itemMeta: {
-    color: '#6B615A',
+    color: colors.textMuted,
     fontSize: 13,
     paddingBottom: 12,
     paddingHorizontal: 12,
     paddingTop: 6,
   },
   emptyState: {
-    backgroundColor: '#FFFDF9',
-    borderColor: '#E7D8CA',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderRadius: 18,
     borderWidth: 1,
     padding: 18,
     gap: 12,
   },
   emptyStateTitle: {
-    color: '#201A17',
+    color: colors.text,
     fontSize: 17,
     fontWeight: '700',
   },
   emptyStateBody: {
-    color: '#5D534C',
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 21,
   },
   secondaryButton: {
     alignSelf: 'flex-start',
-    backgroundColor: '#FFFDF9',
-    borderColor: '#E7D8CA',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   secondaryButtonText: {
-    color: '#5D534C',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -543,34 +548,34 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   chip: {
-    backgroundColor: '#FFFDF9',
-    borderColor: '#E7D8CA',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   chipSelected: {
-    backgroundColor: '#201A17',
-    borderColor: '#201A17',
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   chipText: {
-    color: '#6B615A',
+    color: colors.textMuted,
     fontSize: 14,
     fontWeight: '600',
   },
   chipTextSelected: {
-    color: '#F7F1EB',
+    color: colors.accentText,
   },
   error: {
-    color: '#A13737',
+    color: colors.danger,
     fontSize: 14,
     lineHeight: 20,
     marginTop: 18,
   },
   saveButton: {
     alignItems: 'center',
-    backgroundColor: '#201A17',
+    backgroundColor: colors.accent,
     borderRadius: 16,
     marginTop: 24,
     paddingVertical: 15,
@@ -579,7 +584,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   saveButtonText: {
-    color: '#F7F1EB',
+    color: colors.accentText,
     fontSize: 16,
     fontWeight: '700',
   },

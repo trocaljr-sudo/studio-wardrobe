@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 
+import { AmbientBackground } from '../../lib/ambient-background';
 import {
   fetchEventRecommendations,
   fetchRecommendations,
@@ -22,6 +23,7 @@ import {
 } from '../../lib/recommendations';
 import { recordFeedback, toggleFavoriteOutfit } from '../../lib/personalization';
 import { useSession } from '../../lib/session';
+import { useTheme } from '../../lib/theme';
 
 type ScreenState = Awaited<ReturnType<typeof fetchRecommendations>>;
 
@@ -34,6 +36,8 @@ const MODES: { id: RecommendationMode; label: string }[] = [
 
 export default function RecommendationsScreen() {
   const { user } = useSession();
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const [state, setState] = useState<ScreenState | null>(null);
   const [selectedOccasionId, setSelectedOccasionId] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
@@ -264,7 +268,7 @@ export default function RecommendationsScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centered}>
-          <ActivityIndicator color="#8C5E3C" size="small" />
+          <ActivityIndicator color={colors.accent} size="small" />
           <Text style={styles.helperText}>Loading recommendations...</Text>
         </View>
       </SafeAreaView>
@@ -276,13 +280,14 @@ export default function RecommendationsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AmbientBackground />
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
             onRefresh={() => loadRecommendations(selectedOccasionId, 'refresh')}
             refreshing={refreshing}
-            tintColor="#8C5E3C"
+            tintColor={colors.accent}
           />
         }
       >
@@ -455,10 +460,10 @@ export default function RecommendationsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F6F1EA',
+    backgroundColor: colors.background,
   },
   content: {
     paddingHorizontal: 20,
@@ -472,10 +477,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#201A17',
+    color: colors.text,
   },
   body: {
-    color: '#5E534A',
+    color: colors.textMuted,
     lineHeight: 22,
   },
   rowScroll: {
@@ -490,30 +495,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 999,
-    backgroundColor: '#FFF9F2',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#E0D1C1',
+    borderColor: colors.border,
   },
   chipActive: {
-    backgroundColor: '#E8D8CA',
-    borderColor: '#8C5E3C',
+    backgroundColor: colors.accentMuted,
+    borderColor: colors.accent,
   },
   chipText: {
-    color: '#5D524A',
+    color: colors.text,
     fontWeight: '600',
   },
   chipTextActive: {
-    color: '#5A361A',
+    color: colors.accent,
   },
   aiButton: {
     alignSelf: 'flex-start',
-    backgroundColor: '#EFE3D6',
+    backgroundColor: colors.accentMuted,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 14,
   },
   aiButtonText: {
-    color: '#5A361A',
+    color: colors.accent,
     fontWeight: '700',
   },
   section: {
@@ -522,33 +527,33 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#201A17',
+    color: colors.text,
   },
   sectionBody: {
-    color: '#675D55',
+    color: colors.textMuted,
     lineHeight: 21,
   },
   card: {
     borderRadius: 22,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#E7D8CA',
-    backgroundColor: '#FFFCF7',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
   cardImage: {
     width: '100%',
     height: 170,
-    backgroundColor: '#E9DED4',
+    backgroundColor: colors.surfaceStrong,
   },
   cardPlaceholder: {
     width: '100%',
     height: 170,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EDE4DB',
+    backgroundColor: colors.surfaceStrong,
   },
   cardPlaceholderText: {
-    color: '#7A6E66',
+    color: colors.textSubtle,
     fontWeight: '600',
   },
   cardBody: {
@@ -558,27 +563,27 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#201A17',
+    color: colors.text,
   },
   cardMeta: {
-    color: '#6A6058',
+    color: colors.textMuted,
   },
   reasonText: {
-    color: '#4E443C',
+    color: colors.textMuted,
     lineHeight: 20,
   },
   lookCard: {
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E7D8CA',
-    backgroundColor: '#FFFCF7',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     padding: 16,
     gap: 10,
   },
   lookTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#201A17',
+    color: colors.text,
   },
   lookItems: {
     flexDirection: 'row',
@@ -586,24 +591,24 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   lookItemPill: {
-    backgroundColor: '#F2E7DB',
+    backgroundColor: colors.surfaceStrong,
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   lookItemText: {
-    color: '#4E443C',
+    color: colors.text,
     fontWeight: '600',
   },
   secondaryButton: {
     alignSelf: 'flex-start',
-    backgroundColor: '#EFE3D6',
+    backgroundColor: colors.accentMuted,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 14,
   },
   secondaryButtonText: {
-    color: '#5A361A',
+    color: colors.accent,
     fontWeight: '700',
   },
   actionRow: {
@@ -613,27 +618,27 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   smallChip: {
-    backgroundColor: '#FFF9F2',
+    backgroundColor: colors.surface,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#E0D1C1',
+    borderColor: colors.border,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   smallChipActive: {
-    backgroundColor: '#E8D8CA',
-    borderColor: '#8C5E3C',
+    backgroundColor: colors.accentMuted,
+    borderColor: colors.accent,
   },
   smallChipText: {
-    color: '#5D524A',
+    color: colors.text,
     fontWeight: '700',
   },
   smallChipTextActive: {
-    color: '#5A361A',
+    color: colors.accent,
   },
   emptyBox: {
     borderRadius: 20,
-    backgroundColor: '#FFF9F2',
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: '#E5D8CA',
     padding: 16,
@@ -642,10 +647,10 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#2C221E',
+    color: colors.text,
   },
   emptyBody: {
-    color: '#6A6058',
+    color: colors.textMuted,
     lineHeight: 21,
   },
   centered: {
@@ -655,10 +660,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   helperText: {
-    color: '#6A6058',
+    color: colors.textMuted,
   },
   error: {
-    color: '#A13D30',
+    color: colors.danger,
     lineHeight: 20,
   },
 });

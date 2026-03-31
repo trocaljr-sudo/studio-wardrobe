@@ -16,7 +16,9 @@ import {
   View,
 } from 'react-native';
 
+import { AmbientBackground } from '../../lib/ambient-background';
 import { useSession } from '../../lib/session';
+import { useTheme } from '../../lib/theme';
 import {
   type Brand,
   type Category,
@@ -31,6 +33,8 @@ import {
 export default function ItemDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useSession();
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const [item, setItem] = useState<ClothingItem | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -238,8 +242,9 @@ export default function ItemDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <AmbientBackground />
         <View style={styles.centered}>
-          <ActivityIndicator color="#8C5E3C" size="small" />
+          <ActivityIndicator color={colors.accent} size="small" />
           <Text style={styles.loadingText}>Loading item...</Text>
         </View>
       </SafeAreaView>
@@ -249,6 +254,7 @@ export default function ItemDetailScreen() {
   if (!item) {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <AmbientBackground />
         <View style={styles.centered}>
           <Text style={styles.title}>Item unavailable</Text>
           <Text style={styles.body}>
@@ -266,6 +272,7 @@ export default function ItemDetailScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AmbientBackground />
       <KeyboardAvoidingView
         behavior={Platform.select({ ios: 'padding', android: undefined })}
         style={styles.container}
@@ -346,28 +353,28 @@ export default function ItemDetailScreen() {
               <TextInput
                 onChangeText={setName}
                 placeholder="Item name"
-                placeholderTextColor="#8B8B95"
+                placeholderTextColor={colors.placeholder}
                 style={styles.input}
                 value={name}
               />
               <TextInput
                 onChangeText={setColor}
                 placeholder="Color"
-                placeholderTextColor="#8B8B95"
+                placeholderTextColor={colors.placeholder}
                 style={styles.input}
                 value={color}
               />
               <TextInput
                 onChangeText={setSize}
                 placeholder="Size"
-                placeholderTextColor="#8B8B95"
+                placeholderTextColor={colors.placeholder}
                 style={styles.input}
                 value={size}
               />
               <TextInput
                 onChangeText={setMaterial}
                 placeholder="Material"
-                placeholderTextColor="#8B8B95"
+                placeholderTextColor={colors.placeholder}
                 style={styles.input}
                 value={material}
               />
@@ -462,10 +469,10 @@ export default function ItemDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F6F1EA',
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
@@ -482,7 +489,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   loadingText: {
-    color: '#5D534C',
+    color: colors.textMuted,
     fontSize: 15,
   },
   backButton: {
@@ -490,7 +497,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   backButtonText: {
-    color: '#8C5E3C',
+    color: colors.accent,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -498,20 +505,20 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 320,
     borderRadius: 24,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surfaceMuted,
   },
   imageFallback: {
     width: '100%',
     height: 320,
     borderRadius: 24,
-    backgroundColor: '#FFFDF9',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#E7D8CA',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   imageFallbackText: {
-    color: '#8B8B95',
+    color: colors.textSubtle,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -533,31 +540,31 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   title: {
-    color: '#201A17',
+    color: colors.text,
     fontSize: 30,
     fontWeight: '700',
   },
   subtitle: {
-    color: '#5D534C',
+    color: colors.textMuted,
     fontSize: 15,
     lineHeight: 22,
   },
   body: {
-    color: '#5D534C',
+    color: colors.textMuted,
     fontSize: 16,
     lineHeight: 24,
     textAlign: 'center',
   },
   metaCard: {
-    backgroundColor: '#FFFDF9',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E7D8CA',
+    borderColor: colors.border,
     padding: 18,
     gap: 4,
   },
   metaLabel: {
-    color: '#8C5E3C',
+    color: colors.accent,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.6,
@@ -565,7 +572,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   metaValue: {
-    color: '#201A17',
+    color: colors.text,
     fontSize: 16,
     lineHeight: 23,
   },
@@ -573,11 +580,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   input: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E7D8CA',
+    backgroundColor: colors.input,
+    borderColor: colors.border,
     borderRadius: 16,
     borderWidth: 1,
-    color: '#201A17',
+    color: colors.text,
     fontSize: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -586,7 +593,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   selectorLabel: {
-    color: '#201A17',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -595,60 +602,60 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   chip: {
-    backgroundColor: '#FFFDF9',
-    borderColor: '#E7D8CA',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   chipActive: {
-    backgroundColor: '#201A17',
-    borderColor: '#201A17',
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   chipText: {
-    color: '#6B615A',
+    color: colors.textMuted,
     fontSize: 14,
     fontWeight: '600',
   },
   chipTextActive: {
-    color: '#F7F1EB',
+    color: colors.accentText,
   },
   secondaryButton: {
-    backgroundColor: '#FFFDF9',
-    borderColor: '#E7D8CA',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   secondaryButtonText: {
-    color: '#5D534C',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '600',
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#201A17',
+    backgroundColor: colors.accent,
     borderRadius: 16,
     marginTop: 20,
     paddingVertical: 15,
   },
   primaryButtonText: {
-    color: '#F7F1EB',
+    color: colors.accentText,
     fontSize: 16,
     fontWeight: '700',
   },
   deleteButton: {
     alignItems: 'center',
-    borderColor: '#C78080',
+    borderColor: colors.danger,
     borderRadius: 16,
     borderWidth: 1,
     marginTop: 14,
     paddingVertical: 15,
   },
   deleteButtonText: {
-    color: '#A13737',
+    color: colors.danger,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -656,13 +663,13 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   error: {
-    color: '#A13737',
+    color: colors.danger,
     fontSize: 14,
     lineHeight: 20,
     marginTop: 16,
   },
   success: {
-    color: '#2F6D45',
+    color: colors.success,
     fontSize: 14,
     lineHeight: 20,
     marginTop: 16,

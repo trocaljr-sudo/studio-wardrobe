@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 
+import { AmbientBackground } from '../../lib/ambient-background';
 import { type StylePreset } from '../../lib/style-ai-prompt';
 import { recordFeedback } from '../../lib/personalization';
 import {
@@ -22,6 +23,7 @@ import {
   type AIStylingResult,
 } from '../../lib/style-ai';
 import { useSession } from '../../lib/session';
+import { useTheme } from '../../lib/theme';
 
 const PRESETS: { id: StylePreset; label: string; prompt: string }[] = [
   { id: 'casual', label: 'Casual', prompt: 'Give me a casual look from my wardrobe.' },
@@ -38,6 +40,8 @@ const PRESETS: { id: StylePreset; label: string; prompt: string }[] = [
 
 export default function StyleAIScreen() {
   const { user } = useSession();
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const { eventId: eventIdParam } = useLocalSearchParams<{ eventId?: string }>();
   const eventId = eventIdParam ? Number(eventIdParam) : null;
   const [focus, setFocus] = useState<'outfit-suggestions' | 'gap-analysis'>('outfit-suggestions');
@@ -159,6 +163,7 @@ export default function StyleAIScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AmbientBackground />
       <KeyboardAvoidingView
         behavior={Platform.select({ ios: 'padding', android: undefined })}
         style={styles.container}
@@ -228,7 +233,7 @@ export default function StyleAIScreen() {
                 ? 'Ask for an outfit idea, like “Build a monochrome look for date night.”'
                 : 'Ask what would strengthen your wardrobe, like “What am I missing for summer business outfits?”'
             }
-            placeholderTextColor="#8B8B95"
+            placeholderTextColor={colors.placeholder}
             style={styles.promptInput}
             value={prompt}
           />
@@ -245,7 +250,7 @@ export default function StyleAIScreen() {
 
           {loading ? (
             <View style={styles.centered}>
-              <ActivityIndicator color="#8C5E3C" size="small" />
+              <ActivityIndicator color={colors.accent} size="small" />
               <Text style={styles.helperText}>Building grounded suggestions...</Text>
             </View>
           ) : null}
@@ -324,10 +329,10 @@ export default function StyleAIScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F6F1EA',
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
@@ -343,16 +348,16 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   backText: {
-    color: '#8C5E3C',
+    color: colors.accent,
     fontWeight: '600',
   },
   title: {
     fontSize: 30,
     fontWeight: '700',
-    color: '#201A17',
+    color: colors.text,
   },
   body: {
-    color: '#5E534A',
+    color: colors.textMuted,
     lineHeight: 22,
   },
   segmentRow: {
@@ -364,20 +369,20 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 13,
     alignItems: 'center',
-    backgroundColor: '#FFF9F2',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#E0D1C1',
+    borderColor: colors.border,
   },
   segmentActive: {
-    backgroundColor: '#E8D8CA',
-    borderColor: '#8C5E3C',
+    backgroundColor: colors.accentMuted,
+    borderColor: colors.accent,
   },
   segmentText: {
-    color: '#5D524A',
+    color: colors.text,
     fontWeight: '700',
   },
   segmentTextActive: {
-    color: '#5A361A',
+    color: colors.accent,
   },
   presetRow: {
     flexDirection: 'row',
@@ -387,41 +392,41 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 999,
-    backgroundColor: '#FFF9F2',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#E0D1C1',
+    borderColor: colors.border,
   },
   presetChipActive: {
-    backgroundColor: '#E8D8CA',
-    borderColor: '#8C5E3C',
+    backgroundColor: colors.accentMuted,
+    borderColor: colors.accent,
   },
   presetChipText: {
-    color: '#5D524A',
+    color: colors.text,
     fontWeight: '600',
   },
   presetChipTextActive: {
-    color: '#5A361A',
+    color: colors.accent,
   },
   promptInput: {
     minHeight: 120,
     textAlignVertical: 'top',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#D9C8B7',
-    backgroundColor: '#FFFCF8',
+    borderColor: colors.border,
+    backgroundColor: colors.input,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    color: '#201A17',
+    color: colors.text,
     fontSize: 16,
   },
   primaryButton: {
-    backgroundColor: '#8C5E3C',
+    backgroundColor: colors.accent,
     borderRadius: 16,
     paddingVertical: 15,
     alignItems: 'center',
   },
   primaryButtonText: {
-    color: '#FFF8F1',
+    color: colors.accentText,
     fontWeight: '700',
     fontSize: 16,
   },
@@ -435,10 +440,10 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
   },
   helperText: {
-    color: '#6A6058',
+    color: colors.textMuted,
   },
   error: {
-    color: '#A13D30',
+    color: colors.danger,
     lineHeight: 20,
   },
   resultsSection: {
@@ -453,43 +458,43 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#201A17',
+    color: colors.text,
   },
   resultBadge: {
-    color: '#5A361A',
+    color: colors.accent,
     fontWeight: '700',
-    backgroundColor: '#EFE3D6',
+    backgroundColor: colors.accentMuted,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 999,
   },
   sectionBody: {
-    color: '#6A6058',
+    color: colors.textMuted,
     lineHeight: 21,
   },
   resultCard: {
-    backgroundColor: '#FFFCF7',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E7D8CA',
+    borderColor: colors.border,
     padding: 16,
     gap: 8,
   },
   resultTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#201A17',
+    color: colors.text,
   },
   resultMeta: {
-    color: '#6A6058',
+    color: colors.textMuted,
     lineHeight: 20,
   },
   resultBody: {
-    color: '#4E443C',
+    color: colors.textMuted,
     lineHeight: 21,
   },
   confidenceText: {
-    color: '#5A361A',
+    color: colors.accent,
     fontWeight: '600',
   },
   actionRow: {
@@ -499,13 +504,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   secondaryButton: {
-    backgroundColor: '#EFE3D6',
+    backgroundColor: colors.accentMuted,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 11,
   },
   secondaryButtonText: {
-    color: '#5A361A',
+    color: colors.accent,
     fontWeight: '700',
   },
 });

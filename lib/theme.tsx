@@ -20,6 +20,7 @@ type ThemeColors = {
   accentMuted: string;
   accentText: string;
   danger: string;
+  dangerMuted: string;
   success: string;
   input: string;
   placeholder: string;
@@ -52,6 +53,7 @@ const palettes: Record<ResolvedTheme, ThemeColors> = {
     accentMuted: '#1F6B52',
     accentText: '#F5FFF9',
     danger: '#F07E7E',
+    dangerMuted: '#442726',
     success: '#62D59B',
     input: '#151D1A',
     placeholder: '#7D8782',
@@ -71,6 +73,7 @@ const palettes: Record<ResolvedTheme, ThemeColors> = {
     accentMuted: '#D7F2E6',
     accentText: '#F4FFF9',
     danger: '#C05555',
+    dangerMuted: '#F7DDDD',
     success: '#248C5F',
     input: '#FFFFFF',
     placeholder: '#839088',

@@ -15,14 +15,18 @@ import {
   View,
 } from 'react-native';
 
+import { AmbientBackground } from '../../lib/ambient-background';
 import { deleteOutfit, fetchOccasions, fetchOutfitDetail, fetchSelectableClothingItems, updateOutfit, type Occasion } from '../../lib/outfits';
 import { fetchPersonalizationSnapshot, recordFeedback, toggleFavoriteOutfit } from '../../lib/personalization';
 import { useSession } from '../../lib/session';
+import { useTheme } from '../../lib/theme';
 import { type ClothingItem, type Tag, fetchTags } from '../../lib/wardrobe';
 
 export default function OutfitDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useSession();
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const [detail, setDetail] = useState<Awaited<ReturnType<typeof fetchOutfitDetail>> | null>(null);
   const [allItems, setAllItems] = useState<ClothingItem[]>([]);
   const [allOccasions, setAllOccasions] = useState<Occasion[]>([]);
@@ -221,7 +225,7 @@ export default function OutfitDetailScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centered}>
-          <ActivityIndicator color="#8C5E3C" size="small" />
+          <ActivityIndicator color={colors.accent} size="small" />
           <Text style={styles.helperText}>Loading outfit...</Text>
         </View>
       </SafeAreaView>
@@ -243,6 +247,7 @@ export default function OutfitDetailScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AmbientBackground />
       <KeyboardAvoidingView
         behavior={Platform.select({ ios: 'padding', android: undefined })}
         style={styles.container}
@@ -265,7 +270,7 @@ export default function OutfitDetailScreen() {
               <TextInput
                 onChangeText={setName}
                 placeholder="Outfit name"
-                placeholderTextColor="#8B8B95"
+                placeholderTextColor={colors.placeholder}
                 style={styles.input}
                 value={name}
               />
@@ -273,7 +278,7 @@ export default function OutfitDetailScreen() {
                 multiline
                 onChangeText={setDescription}
                 placeholder="Description or notes"
-                placeholderTextColor="#8B8B95"
+                placeholderTextColor={colors.placeholder}
                 style={[styles.input, styles.textArea]}
                 value={description}
               />
@@ -430,10 +435,10 @@ export default function OutfitDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F6F1EA',
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
@@ -450,7 +455,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   helperText: {
-    color: '#5D534C',
+    color: colors.textMuted,
     fontSize: 15,
     lineHeight: 22,
     textAlign: 'center',
@@ -459,7 +464,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   backText: {
-    color: '#8C5E3C',
+    color: colors.accent,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -471,7 +476,7 @@ const styles = StyleSheet.create({
   },
   heroPlaceholder: {
     alignItems: 'center',
-    backgroundColor: '#EFE6DE',
+    backgroundColor: colors.surfaceStrong,
     borderRadius: 20,
     height: 220,
     justifyContent: 'center',
@@ -479,18 +484,18 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   heroPlaceholderText: {
-    color: '#8E837A',
+    color: colors.textSubtle,
     fontSize: 14,
     fontWeight: '600',
   },
   title: {
-    color: '#201A17',
+    color: colors.text,
     fontSize: 30,
     fontWeight: '700',
     marginBottom: 10,
   },
   body: {
-    color: '#5D534C',
+    color: colors.textMuted,
     fontSize: 16,
     lineHeight: 24,
     marginBottom: 10,
@@ -502,35 +507,35 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   feedbackChip: {
-    backgroundColor: '#FFF9F2',
+    backgroundColor: colors.surface,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#E0D1C1',
+    borderColor: colors.border,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   feedbackChipActive: {
-    backgroundColor: '#E8D8CA',
-    borderColor: '#8C5E3C',
+    backgroundColor: colors.accentMuted,
+    borderColor: colors.accent,
   },
   feedbackChipText: {
-    color: '#5D524A',
+    color: colors.text,
     fontWeight: '700',
   },
   feedbackChipTextActive: {
-    color: '#5A361A',
+    color: colors.accent,
   },
   meta: {
-    color: '#8C5E3C',
+    color: colors.accent,
     fontSize: 14,
     marginBottom: 18,
   },
   input: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E7D8CA',
+    backgroundColor: colors.input,
+    borderColor: colors.border,
     borderRadius: 16,
     borderWidth: 1,
-    color: '#201A17',
+    color: colors.text,
     fontSize: 16,
     marginBottom: 12,
     paddingHorizontal: 16,
@@ -544,7 +549,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   sectionTitle: {
-    color: '#201A17',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 12,
@@ -555,15 +560,15 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   itemCard: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E7D8CA',
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.border,
     borderRadius: 18,
     borderWidth: 1,
     overflow: 'hidden',
     width: '47%',
   },
   itemCardSelected: {
-    borderColor: '#201A17',
+    borderColor: colors.accent,
     borderWidth: 2,
   },
   itemImage: {
@@ -572,25 +577,25 @@ const styles = StyleSheet.create({
   },
   itemImagePlaceholder: {
     alignItems: 'center',
-    backgroundColor: '#EFE6DE',
+    backgroundColor: colors.surfaceStrong,
     height: 120,
     justifyContent: 'center',
     width: '100%',
   },
   itemImagePlaceholderText: {
-    color: '#8E837A',
+    color: colors.textSubtle,
     fontSize: 13,
     fontWeight: '600',
   },
   itemName: {
-    color: '#201A17',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '700',
     paddingHorizontal: 12,
     paddingTop: 12,
   },
   itemMeta: {
-    color: '#6B615A',
+    color: colors.textMuted,
     fontSize: 13,
     paddingBottom: 12,
     paddingHorizontal: 12,
@@ -602,27 +607,27 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   chip: {
-    backgroundColor: '#FFFDF9',
-    borderColor: '#E7D8CA',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   chipSelected: {
-    backgroundColor: '#201A17',
-    borderColor: '#201A17',
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   chipText: {
-    color: '#6B615A',
+    color: colors.textMuted,
     fontSize: 14,
     fontWeight: '600',
   },
   chipTextSelected: {
-    color: '#F7F1EB',
+    color: colors.accentText,
   },
   error: {
-    color: '#A13737',
+    color: colors.danger,
     fontSize: 14,
     lineHeight: 20,
     marginTop: 18,
@@ -634,39 +639,39 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#201A17',
+    backgroundColor: colors.accent,
     borderRadius: 16,
     flex: 1,
     paddingVertical: 15,
   },
   primaryButtonText: {
-    color: '#F7F1EB',
+    color: colors.accentText,
     fontSize: 16,
     fontWeight: '700',
   },
   secondaryButton: {
     alignItems: 'center',
-    backgroundColor: '#FFFDF9',
-    borderColor: '#E7D8CA',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderRadius: 16,
     borderWidth: 1,
     flex: 1,
     paddingVertical: 15,
   },
   secondaryButtonText: {
-    color: '#201A17',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '700',
   },
   deleteButton: {
     alignItems: 'center',
-    backgroundColor: '#A13737',
+    backgroundColor: colors.danger,
     borderRadius: 16,
     flex: 1,
     paddingVertical: 15,
   },
   deleteButtonText: {
-    color: '#F7F1EB',
+    color: colors.accentText,
     fontSize: 16,
     fontWeight: '700',
   },

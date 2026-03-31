@@ -14,7 +14,7 @@ export default function TabsLayout() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.loading}>
-          <ActivityIndicator color="#8C5E3C" size="small" />
+          <ActivityIndicator color={colors.accent} size="small" />
         </View>
       </SafeAreaView>
     );
