@@ -1,7 +1,6 @@
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -18,17 +17,35 @@ export default function SignUpScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const formatSignUpError = (message: string) => {
+    const normalized = message.toLowerCase();
+
+    if (normalized.includes('already registered') || normalized.includes('already been registered')) {
+      return 'That email already has an account. Try signing in instead.';
+    }
+
+    if (normalized.includes('password')) {
+      return 'Use a stronger password and try again.';
+    }
+
+    return message;
+  };
 
   const handleSignUp = async () => {
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedPassword = password.trim();
 
     if (!normalizedEmail || !normalizedPassword) {
-      Alert.alert('Missing info', 'Enter your email and password to create an account.');
+      setErrorMessage('Enter your email and password to create an account.');
       return;
     }
 
     setLoading(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password: normalizedPassword,
@@ -36,7 +53,7 @@ export default function SignUpScreen() {
     setLoading(false);
 
     if (error) {
-      Alert.alert('Sign up failed', error.message);
+      setErrorMessage(formatSignUpError(error.message));
       return;
     }
 
@@ -45,9 +62,8 @@ export default function SignUpScreen() {
       return;
     }
 
-    Alert.alert(
-      'Account created',
-      'Your account is ready. Check your email if confirmation is enabled, then sign in.'
+    setSuccessMessage(
+      'Account created. Check your email if confirmation is enabled, then sign in.'
     );
     router.replace('/(auth)/sign-in');
   };
@@ -85,11 +101,17 @@ export default function SignUpScreen() {
               style={styles.input}
               value={password}
             />
-            <Pressable onPress={handleSignUp} style={styles.primaryButton}>
+            <Pressable
+              disabled={loading}
+              onPress={handleSignUp}
+              style={[styles.primaryButton, loading && styles.primaryButtonDisabled]}
+            >
               <Text style={styles.primaryButtonText}>
                 {loading ? 'Creating account...' : 'Sign up'}
               </Text>
             </Pressable>
+            {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
+            {successMessage ? <Text style={styles.success}>{successMessage}</Text> : null}
           </View>
 
           <Link href="/(auth)/sign-in" style={styles.link}>
@@ -153,6 +175,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingVertical: 15,
   },
+  primaryButtonDisabled: {
+    opacity: 0.7,
+  },
   primaryButtonText: {
     color: '#F7F1EB',
     fontSize: 16,
@@ -162,5 +187,15 @@ const styles = StyleSheet.create({
     color: '#8C5E3C',
     fontSize: 15,
     fontWeight: '600',
+  },
+  error: {
+    color: '#A13737',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  success: {
+    color: '#2F6D45',
+    fontSize: 14,
+    lineHeight: 20,
   },
 });

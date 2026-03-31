@@ -152,6 +152,11 @@ export default function EventsScreen() {
                 ? errorMessage
                 : 'Add an event to map a real date or occasion to one of your saved outfits.'}
             </Text>
+            <Pressable onPress={() => router.push('/events/new')} style={styles.emptyButton}>
+              <Text style={styles.emptyButtonText}>
+                {errorMessage ? 'Try creating an event' : 'Create your first event'}
+              </Text>
+            </Pressable>
           </View>
         }
         ListHeaderComponent={
@@ -274,6 +279,19 @@ const styles = StyleSheet.create({
     color: '#6A6058',
     textAlign: 'center',
     lineHeight: 21,
+  },
+  emptyButton: {
+    alignItems: 'center',
+    backgroundColor: '#201A17',
+    borderRadius: 14,
+    marginTop: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+  emptyButtonText: {
+    color: '#F7F1EB',
+    fontSize: 14,
+    fontWeight: '700',
   },
   centered: {
     flex: 1,

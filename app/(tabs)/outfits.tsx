@@ -369,6 +369,15 @@ export default function OutfitsScreen() {
                 ? 'Try changing your search or clearing the current filters.'
                 : 'Create your first outfit to start saving complete looks.'}
             </Text>
+            {hasActiveFilters ? (
+              <Pressable onPress={clearFilters} style={styles.emptyButton}>
+                <Text style={styles.emptyButtonText}>Clear filters</Text>
+              </Pressable>
+            ) : (
+              <Pressable onPress={() => router.push('/outfits/new')} style={styles.emptyButton}>
+                <Text style={styles.emptyButtonText}>Create your first outfit</Text>
+              </Pressable>
+            )}
           </View>
         }
       />
@@ -581,5 +590,18 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     maxWidth: 280,
     textAlign: 'center',
+  },
+  emptyButton: {
+    alignItems: 'center',
+    backgroundColor: '#201A17',
+    borderRadius: 14,
+    marginTop: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+  emptyButtonText: {
+    color: '#F7F1EB',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

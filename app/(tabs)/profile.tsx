@@ -30,7 +30,11 @@ export default function ProfileScreen() {
         </Text>
         <Text style={styles.body}>Manage your Studio Wardrobe session from here.</Text>
         {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
-        <Pressable onPress={handleSignOut} style={styles.button}>
+        <Pressable
+          disabled={loading}
+          onPress={handleSignOut}
+          style={[styles.button, loading && styles.buttonDisabled]}
+        >
           <Text style={styles.buttonText}>{loading ? 'Signing out...' : 'Sign out'}</Text>
         </Pressable>
       </View>
@@ -78,5 +82,8 @@ const styles = StyleSheet.create({
     color: '#F7F1EB',
     fontSize: 15,
     fontWeight: '700',
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
 });

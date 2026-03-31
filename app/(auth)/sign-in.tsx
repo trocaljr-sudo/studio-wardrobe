@@ -1,7 +1,6 @@
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -18,17 +17,36 @@ export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const formatAuthError = (message: string) => {
+    const normalized = message.toLowerCase();
+
+    if (
+      normalized.includes('invalid login credentials') ||
+      normalized.includes('invalid credentials')
+    ) {
+      return 'That email and password combination did not work. Check your details and try again.';
+    }
+
+    if (normalized.includes('email not confirmed')) {
+      return 'Check your email to confirm your account, then try signing in again.';
+    }
+
+    return message;
+  };
 
   const handleSignIn = async () => {
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedPassword = password.trim();
 
     if (!normalizedEmail || !normalizedPassword) {
-      Alert.alert('Missing info', 'Enter your email and password to continue.');
+      setErrorMessage('Enter your email and password to continue.');
       return;
     }
 
     setLoading(true);
+    setErrorMessage(null);
     const { error } = await supabase.auth.signInWithPassword({
       email: normalizedEmail,
       password: normalizedPassword,
@@ -36,7 +54,7 @@ export default function SignInScreen() {
     setLoading(false);
 
     if (error) {
-      Alert.alert('Sign in failed', error.message);
+      setErrorMessage(formatAuthError(error.message));
       return;
     }
 
@@ -76,11 +94,16 @@ export default function SignInScreen() {
               style={styles.input}
               value={password}
             />
-            <Pressable onPress={handleSignIn} style={styles.primaryButton}>
+            <Pressable
+              disabled={loading}
+              onPress={handleSignIn}
+              style={[styles.primaryButton, loading && styles.primaryButtonDisabled]}
+            >
               <Text style={styles.primaryButtonText}>
                 {loading ? 'Signing in...' : 'Sign in'}
               </Text>
             </Pressable>
+            {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
           </View>
 
           <Link href="/(auth)/sign-up" style={styles.link}>
@@ -144,6 +167,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingVertical: 15,
   },
+  primaryButtonDisabled: {
+    opacity: 0.7,
+  },
   primaryButtonText: {
     color: '#F7F1EB',
     fontSize: 16,
@@ -153,5 +179,10 @@ const styles = StyleSheet.create({
     color: '#8C5E3C',
     fontSize: 15,
     fontWeight: '600',
+  },
+  error: {
+    color: '#A13737',
+    fontSize: 14,
+    lineHeight: 20,
   },
 });

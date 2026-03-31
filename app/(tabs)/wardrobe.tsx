@@ -472,6 +472,15 @@ export default function WardrobeScreen() {
                 ? 'Try changing your search or clearing one of the active filters.'
                 : 'Add your first piece from the Add Item tab and it will show up here.'}
             </Text>
+            {hasActiveFilters ? (
+              <Pressable onPress={clearAllFilters} style={styles.emptyButton}>
+                <Text style={styles.emptyButtonText}>Clear filters</Text>
+              </Pressable>
+            ) : (
+              <Pressable onPress={() => router.push('/(tabs)/add-item')} style={styles.emptyButton}>
+                <Text style={styles.emptyButtonText}>Add your first item</Text>
+              </Pressable>
+            )}
           </View>
         }
       />
@@ -703,5 +712,18 @@ const styles = StyleSheet.create({
     maxWidth: 280,
     paddingTop: 10,
     textAlign: 'center',
+  },
+  emptyButton: {
+    alignItems: 'center',
+    backgroundColor: '#201A17',
+    borderRadius: 14,
+    marginTop: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+  emptyButtonText: {
+    color: '#F7F1EB',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
