@@ -7,6 +7,11 @@ import {
   type OutfitDetail,
   type OutfitSummary,
 } from './outfits';
+import {
+  deriveUserStyleProfile,
+  fetchStoredStyleProfile,
+  type DerivedStyleProfile,
+} from './personalization';
 import { fetchWardrobeItems, type ClothingItem } from './wardrobe';
 
 export type RecommendationMode =
@@ -17,9 +22,12 @@ export type RecommendationMode =
 
 export type RecommendedOutfit = {
   createdAt: string | null;
+  feedbackSignal: 'like' | 'dislike' | null;
+  isFavorite: boolean;
   itemCount: number;
   name: string;
   outfit: OutfitSummary;
+  personalReasonCount: number;
   reasons: string[];
   score: number;
 };
@@ -51,6 +59,10 @@ function normalize(value: string | null | undefined) {
 
 function uniqueReasons(reasons: string[]) {
   return Array.from(new Set(reasons)).slice(0, 3);
+}
+
+function unique(values: string[]) {
+  return Array.from(new Set(values));
 }
 
 function extractKeywords(value: string) {
@@ -126,11 +138,16 @@ function outfitHasMatchingKeywords(outfit: DetailedOutfitRecommendation, keyword
 function computeOutfitRecommendation(params: {
   event?: EventSummary | null;
   outfit: DetailedOutfitRecommendation;
+  profile: DerivedStyleProfile;
   selectedOccasion?: Occasion | null;
 }) {
-  const { event, outfit, selectedOccasion } = params;
+  const { event, outfit, profile, selectedOccasion } = params;
   const reasons: string[] = [];
   let score = 0;
+  let personalReasonCount = 0;
+
+  const feedbackSignal = profile.outfitFeedback[outfit.outfit.id] ?? null;
+  const isFavorite = profile.favoriteOutfitIds.includes(outfit.outfit.id);
 
   const hasOccasionMatch =
     !!selectedOccasion &&
@@ -139,6 +156,34 @@ function computeOutfitRecommendation(params: {
   if (hasOccasionMatch && selectedOccasion) {
     score += 70;
     reasons.push(`Matches your ${selectedOccasion.name} occasion`);
+  }
+
+  if (isFavorite) {
+    score += 42;
+    reasons.push('One of your favorite saved outfits');
+    personalReasonCount += 1;
+  }
+
+  if (feedbackSignal === 'like') {
+    score += 32;
+    reasons.push('You have liked this kind of look before');
+    personalReasonCount += 1;
+  }
+
+  if (feedbackSignal === 'dislike') {
+    score -= 52;
+    reasons.push('You previously marked this look as a weaker fit');
+    personalReasonCount += 1;
+  }
+
+  if (
+    outfit.occasionNames.some((occasionName) =>
+      profile.preferredOccasionNames.includes(normalize(occasionName))
+    )
+  ) {
+    score += 18;
+    reasons.push('Lines up with the occasions you reach for most');
+    personalReasonCount += 1;
   }
 
   const eventKeywords = event ? extractKeywords(event.title) : [];
@@ -155,6 +200,30 @@ function computeOutfitRecommendation(params: {
   if (outfit.itemCategories.includes('shoes')) {
     score += 10;
     reasons.push('Already includes footwear in the outfit');
+  }
+
+  const matchedPreferredColors = unique(
+    outfit.items
+      .map((item) => normalize(item.color))
+      .filter((color) => color && profile.preferredColors.includes(color))
+  );
+
+  if (matchedPreferredColors.length > 0) {
+    score += 14;
+    reasons.push(`Uses colors you keep returning to, like ${matchedPreferredColors.join(', ')}`);
+    personalReasonCount += 1;
+  }
+
+  const matchedPreferredCategories = unique(
+    outfit.items
+      .map((item) => normalize(item.categoryName))
+      .filter((category) => category && profile.preferredCategoryNames.includes(category))
+  );
+
+  if (matchedPreferredCategories.length > 0) {
+    score += 12;
+    reasons.push(`Includes piece types you gravitate toward, like ${matchedPreferredCategories.join(', ')}`);
+    personalReasonCount += 1;
   }
 
   if (outfit.outfit.itemCount >= 3) {
@@ -175,9 +244,12 @@ function computeOutfitRecommendation(params: {
 
   return {
     createdAt: outfit.outfit.created_at,
+    feedbackSignal,
+    isFavorite,
     itemCount: outfit.outfit.itemCount,
     name: outfit.outfit.name,
     outfit: outfit.outfit,
+    personalReasonCount,
     reasons: uniqueReasons(reasons),
     score,
   } as RecommendedOutfit;
@@ -215,6 +287,7 @@ function buildDetailedOutfitMap(
 
 function buildUnusedItemRecommendations(
   items: ClothingItem[],
+  profile: DerivedStyleProfile,
   usedItemIds: Set<string>
 ) {
   return items
@@ -224,6 +297,11 @@ function buildUnusedItemRecommendations(
       item,
       reasons: [
         'Not used in any saved outfit yet',
+        profile.favoriteItemIds.includes(item.id)
+          ? 'Already marked as a favorite item'
+          : profile.preferredCategoryNames.includes(normalize(item.categoryName))
+            ? 'Falls inside the categories you usually prefer'
+            : 'Fresh candidate for your next rotation',
         isNeutralColor(item.color)
           ? 'Neutral color makes it easy to pair'
           : 'Ready to anchor a new look',
@@ -272,10 +350,11 @@ function chooseBestItem(
 
 function buildWardrobeLookSuggestions(params: {
   items: ClothingItem[];
+  profile: DerivedStyleProfile;
   selectedOccasion?: Occasion | null;
   usedItemIds: Set<string>;
 }) {
-  const { items, selectedOccasion, usedItemIds } = params;
+  const { items, profile, selectedOccasion, usedItemIds } = params;
   const preferUnusedIds = new Set(items.filter((item) => !usedItemIds.has(item.id)).map((item) => item.id));
   const byCategory = {
     top: items.filter((item) => categorizeItem(item) === 'top'),
@@ -322,6 +401,9 @@ function buildWardrobeLookSuggestions(params: {
       items: outerwear ? [onePiece, shoes, outerwear] : [onePiece, shoes],
       reasons: uniqueReasons([
         'Pairs a one-piece look with shoes for quick styling',
+        profile.preferredCategoryNames.includes(normalize(onePiece.categoryName))
+          ? 'Centers a silhouette you already seem to like'
+          : 'Keeps the silhouette straightforward and easy to style',
         preferUnusedIds.has(onePiece.id) || preferUnusedIds.has(shoes.id)
           ? 'Brings in pieces you have not used in a saved outfit yet'
           : 'Builds from strong wardrobe staples',
@@ -342,6 +424,9 @@ function buildWardrobeLookSuggestions(params: {
       items: comboItems,
       reasons: uniqueReasons([
         'Covers top and bottom for a grounded starting point',
+        comboItems.some((item) => profile.favoriteItemIds.includes(item.id))
+          ? 'Starts from at least one piece you have explicitly favorited'
+          : 'Keeps the base practical and wearable',
         shoes ? 'Includes shoes so the look already feels complete' : 'Leaves space to swap in your favorite shoes',
         comboItems.some((item) => preferUnusedIds.has(item.id))
           ? 'Pulls in at least one piece not used in a saved outfit yet'
@@ -354,20 +439,29 @@ function buildWardrobeLookSuggestions(params: {
 }
 
 export async function fetchRecommendations(userId: string, occasionId?: string | null) {
-  const [itemsResult, outfits, occasions, events] = await Promise.all([
+  const [itemsResult, outfits, occasions, events, storedProfile] = await Promise.all([
     fetchWardrobeItems(userId),
     fetchOutfits(userId),
     fetchOccasions(),
     fetchEvents(userId),
+    fetchStoredStyleProfile(userId),
   ]);
 
   const detailedOutfits = await Promise.all(outfits.map((outfit) => fetchOutfitDetail(userId, outfit.id)));
   const detailedRecommendationOutfits = buildDetailedOutfitMap(outfits, detailedOutfits, events);
+  const profile = deriveUserStyleProfile({
+    storedProfile,
+    items: itemsResult.items,
+    outfits,
+    outfitDetails: detailedOutfits,
+    events,
+  });
   const occasion = occasions.find((entry) => entry.id === occasionId) ?? null;
   const recommendedOutfits = sortRecommendedOutfits(
     detailedRecommendationOutfits.map((outfit) =>
       computeOutfitRecommendation({
         outfit,
+        profile,
         selectedOccasion: occasion,
       })
     )
@@ -375,9 +469,10 @@ export async function fetchRecommendations(userId: string, occasionId?: string |
   const usedItemIds = new Set(
     detailedOutfits.flatMap((outfit) => outfit.items.map((item) => item.id))
   );
-  const unusedItems = buildUnusedItemRecommendations(itemsResult.items, usedItemIds);
+  const unusedItems = buildUnusedItemRecommendations(itemsResult.items, profile, usedItemIds);
   const builtLooks = buildWardrobeLookSuggestions({
     items: itemsResult.items,
+    profile,
     selectedOccasion: occasion,
     usedItemIds,
   });
@@ -386,19 +481,31 @@ export async function fetchRecommendations(userId: string, occasionId?: string |
     occasions,
     upcomingEvents: events.filter((event) => !event.isPast).slice(0, 6),
     recommendedOutfits,
+    personalizedOutfits: recommendedOutfits
+      .filter((outfit) => outfit.personalReasonCount > 0 || outfit.isFavorite || outfit.feedbackSignal === 'like')
+      .slice(0, 4),
+    styleProfile: profile,
     unusedItems,
     builtLooks,
   };
 }
 
 export async function fetchEventRecommendations(userId: string, eventId: number) {
-  const [event, outfits] = await Promise.all([
+  const [event, outfits, storedProfile] = await Promise.all([
     fetchEventDetail(userId, eventId),
     fetchOutfits(userId),
+    fetchStoredStyleProfile(userId),
   ]);
   const detailedOutfits = await Promise.all(outfits.map((outfit) => fetchOutfitDetail(userId, outfit.id)));
   const allEvents = await fetchEvents(userId);
   const detailedRecommendationOutfits = buildDetailedOutfitMap(outfits, detailedOutfits, allEvents);
+  const profile = deriveUserStyleProfile({
+    storedProfile,
+    items: detailedOutfits.flatMap((outfit) => outfit.items),
+    outfits,
+    outfitDetails: detailedOutfits,
+    events: allEvents,
+  });
 
   const recommendations = sortRecommendedOutfits(
     detailedRecommendationOutfits
@@ -407,6 +514,7 @@ export async function fetchEventRecommendations(userId: string, eventId: number)
         computeOutfitRecommendation({
           event,
           outfit,
+          profile,
           selectedOccasion: event.occasion,
         })
       )

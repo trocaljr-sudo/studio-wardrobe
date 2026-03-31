@@ -17,6 +17,7 @@ import {
 
 import { deleteEvent, fetchEventDetail, updateEvent } from '../../lib/events';
 import { fetchOccasions, fetchOutfits, type Occasion, type OutfitSummary } from '../../lib/outfits';
+import { recordFeedback } from '../../lib/personalization';
 import { fetchEventRecommendations, type RecommendedOutfit } from '../../lib/recommendations';
 import { useSession } from '../../lib/session';
 
@@ -279,6 +280,30 @@ export default function EventDetailScreen() {
     }
   };
 
+  const handleRecommendationFeedback = async (
+    recommendation: RecommendedOutfit,
+    signal: 'like' | 'dislike'
+  ) => {
+    if (!user) {
+      return;
+    }
+
+    try {
+      await recordFeedback({
+        userId: user.id,
+        targetType: 'outfit',
+        targetId: recommendation.outfit.id,
+        signal,
+        source: 'rules',
+      });
+      setErrorMessage(null);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to save that feedback right now.';
+      setErrorMessage(message);
+    }
+  };
+
   const sortedOutfits = sortOutfits(allOutfits, selectedOccasionId);
 
   if (loading) {
@@ -510,6 +535,20 @@ export default function EventDetailScreen() {
                       >
                         <Text style={styles.assignButtonText}>Assign this look</Text>
                       </Pressable>
+                      <View style={styles.recommendationActions}>
+                        <Pressable
+                          onPress={() => handleRecommendationFeedback(recommendation, 'like')}
+                          style={styles.feedbackChip}
+                        >
+                          <Text style={styles.feedbackChipText}>👍 Like</Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => handleRecommendationFeedback(recommendation, 'dislike')}
+                          style={styles.feedbackChip}
+                        >
+                          <Text style={styles.feedbackChipText}>👎 Dislike</Text>
+                        </Pressable>
+                      </View>
                     </View>
                   </View>
                 ))
@@ -756,6 +795,23 @@ const styles = StyleSheet.create({
   },
   assignButtonText: {
     color: '#5A361A',
+    fontWeight: '700',
+  },
+  recommendationActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  feedbackChip: {
+    backgroundColor: '#FFF9F2',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E0D1C1',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  feedbackChipText: {
+    color: '#5D524A',
     fontWeight: '700',
   },
   styleAiButton: {

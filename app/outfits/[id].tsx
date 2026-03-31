@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 
 import { deleteOutfit, fetchOccasions, fetchOutfitDetail, fetchSelectableClothingItems, updateOutfit, type Occasion } from '../../lib/outfits';
+import { fetchPersonalizationSnapshot, recordFeedback, toggleFavoriteOutfit } from '../../lib/personalization';
 import { useSession } from '../../lib/session';
 import { type ClothingItem, type Tag, fetchTags } from '../../lib/wardrobe';
 
@@ -35,6 +36,8 @@ export default function OutfitDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [favoriteOutfitIds, setFavoriteOutfitIds] = useState<string[]>([]);
+  const [outfitFeedback, setOutfitFeedback] = useState<'like' | 'dislike' | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,11 +52,12 @@ export default function OutfitDetailScreen() {
       }
 
       try {
-        const [nextDetail, nextItems, nextOccasions, nextTags] = await Promise.all([
+        const [nextDetail, nextItems, nextOccasions, nextTags, personalization] = await Promise.all([
           fetchOutfitDetail(user.id, id),
           fetchSelectableClothingItems(user.id),
           fetchOccasions(),
           fetchTags(),
+          fetchPersonalizationSnapshot(user.id),
         ]);
 
         if (!mounted) {
@@ -69,6 +73,8 @@ export default function OutfitDetailScreen() {
         setSelectedItemIds(nextDetail.items.map((item) => item.id));
         setSelectedOccasionIds(nextDetail.occasions.map((occasion) => occasion.id));
         setSelectedTagIds(nextDetail.tags.map((tag) => tag.id));
+        setFavoriteOutfitIds(personalization.favoriteOutfitIds);
+        setOutfitFeedback(personalization.outfitFeedback[id] ?? null);
       } catch (error) {
         if (!mounted) {
           return;
@@ -173,6 +179,44 @@ export default function OutfitDetailScreen() {
     ]);
   };
 
+  const handleToggleFavorite = async () => {
+    if (!user || !id) {
+      return;
+    }
+
+    try {
+      const nextProfile = await toggleFavoriteOutfit(user.id, id);
+      setFavoriteOutfitIds(nextProfile.favoriteOutfitIds);
+      setErrorMessage(null);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to update favorites right now.';
+      setErrorMessage(message);
+    }
+  };
+
+  const handleFeedback = async (signal: 'like' | 'dislike') => {
+    if (!user || !id) {
+      return;
+    }
+
+    try {
+      await recordFeedback({
+        userId: user.id,
+        targetType: 'outfit',
+        targetId: id,
+        signal,
+        source: 'manual',
+      });
+      setOutfitFeedback(signal);
+      setErrorMessage(null);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to save that feedback right now.';
+      setErrorMessage(message);
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -241,6 +285,39 @@ export default function OutfitDetailScreen() {
               {detail.created_at ? (
                 <Text style={styles.meta}>Created {new Date(detail.created_at).toLocaleDateString()}</Text>
               ) : null}
+              <View style={styles.feedbackRow}>
+                <Pressable onPress={handleToggleFavorite} style={styles.feedbackChip}>
+                  <Text style={styles.feedbackChipText}>
+                    {favoriteOutfitIds.includes(id) ? '♥ Favorite' : '♡ Favorite'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => handleFeedback('like')}
+                  style={[styles.feedbackChip, outfitFeedback === 'like' && styles.feedbackChipActive]}
+                >
+                  <Text
+                    style={[
+                      styles.feedbackChipText,
+                      outfitFeedback === 'like' && styles.feedbackChipTextActive,
+                    ]}
+                  >
+                    👍 Like
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => handleFeedback('dislike')}
+                  style={[styles.feedbackChip, outfitFeedback === 'dislike' && styles.feedbackChipActive]}
+                >
+                  <Text
+                    style={[
+                      styles.feedbackChipText,
+                      outfitFeedback === 'dislike' && styles.feedbackChipTextActive,
+                    ]}
+                  >
+                    👎 Dislike
+                  </Text>
+                </Pressable>
+              </View>
             </>
           )}
 
@@ -417,6 +494,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     marginBottom: 10,
+  },
+  feedbackRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 14,
+  },
+  feedbackChip: {
+    backgroundColor: '#FFF9F2',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E0D1C1',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  feedbackChipActive: {
+    backgroundColor: '#E8D8CA',
+    borderColor: '#8C5E3C',
+  },
+  feedbackChipText: {
+    color: '#5D524A',
+    fontWeight: '700',
+  },
+  feedbackChipTextActive: {
+    color: '#5A361A',
   },
   meta: {
     color: '#8C5E3C',

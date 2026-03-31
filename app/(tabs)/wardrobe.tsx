@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 
 import { useSession } from '../../lib/session';
+import { fetchPersonalizationSnapshot, toggleFavoriteItem } from '../../lib/personalization';
 import {
   type Brand,
   type Category,
@@ -41,6 +42,8 @@ export default function WardrobeScreen() {
   const [sizeFilter, setSizeFilter] = useState('');
   const [materialFilter, setMaterialFilter] = useState('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [favoriteOnly, setFavoriteOnly] = useState(false);
+  const [favoriteItemIds, setFavoriteItemIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -103,8 +106,12 @@ export default function WardrobeScreen() {
       }
 
       try {
-        const { items: nextItems } = await fetchWardrobeItems(user.id);
+        const [{ items: nextItems }, personalization] = await Promise.all([
+          fetchWardrobeItems(user.id),
+          fetchPersonalizationSnapshot(user.id),
+        ]);
         setItems(nextItems);
+        setFavoriteItemIds(personalization.favoriteItemIds);
         setErrorMessage(null);
       } catch (error) {
         const message =
@@ -166,6 +173,7 @@ export default function WardrobeScreen() {
       (item.material ?? '').toLowerCase().includes(materialFilter.trim().toLowerCase());
     const tagsMatch =
       selectedTagIds.length === 0 || selectedTagIds.every((tagId) => item.tagIds.includes(tagId));
+    const favoriteMatches = !favoriteOnly || favoriteItemIds.includes(item.id);
 
     return (
       searchMatches &&
@@ -174,7 +182,8 @@ export default function WardrobeScreen() {
       colorMatches &&
       sizeMatches &&
       materialMatches &&
-      tagsMatch
+      tagsMatch &&
+      favoriteMatches
     );
   });
 
@@ -182,6 +191,7 @@ export default function WardrobeScreen() {
     !!debouncedSearch ||
     !!selectedCategoryId ||
     !!selectedBrandId ||
+    favoriteOnly ||
     selectedTagIds.length > 0 ||
     !!colorFilter.trim() ||
     !!sizeFilter.trim() ||
@@ -197,6 +207,22 @@ export default function WardrobeScreen() {
       </SafeAreaView>
     );
   }
+
+  const handleToggleFavorite = async (itemId: string) => {
+    if (!user) {
+      return;
+    }
+
+    try {
+      const nextProfile = await toggleFavoriteItem(user.id, itemId);
+      setFavoriteItemIds(nextProfile.favoriteItemIds);
+      setErrorMessage(null);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to update favorites right now.';
+      setErrorMessage(message);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -215,6 +241,11 @@ export default function WardrobeScreen() {
         }
         renderItem={({ item }) => (
           <View style={styles.card}>
+            <Pressable onPress={() => handleToggleFavorite(item.id)} style={styles.favoriteButton}>
+              <Text style={styles.favoriteButtonText}>
+                {favoriteItemIds.includes(item.id) ? '♥' : '♡'}
+              </Text>
+            </Pressable>
             {item.imageUrl ? (
               <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
             ) : (
@@ -253,6 +284,14 @@ export default function WardrobeScreen() {
               style={styles.filterScroll}
             >
               <View style={styles.filterRow}>
+                <Pressable
+                  onPress={() => setFavoriteOnly((current) => !current)}
+                  style={[styles.filterChip, favoriteOnly && styles.filterChipActive]}
+                >
+                  <Text style={[styles.filterChipText, favoriteOnly && styles.filterChipTextActive]}>
+                    Favorites
+                  </Text>
+                </Pressable>
                 <View>
                   <Text style={styles.filterLabel}>Filter</Text>
                 </View>
@@ -402,6 +441,7 @@ export default function WardrobeScreen() {
                     Brand: {brands.find((brand) => brand.id === selectedBrandId)?.name}
                   </Text>
                 ) : null}
+                {favoriteOnly ? <Text style={styles.activeFilterText}>Favorites only</Text> : null}
                 {colorFilter.trim() ? (
                   <Text style={styles.activeFilterText}>Color: {colorFilter.trim()}</Text>
                 ) : null}
@@ -587,6 +627,24 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     overflow: 'hidden',
+    position: 'relative',
+  },
+  favoriteButton: {
+    position: 'absolute',
+    right: 14,
+    top: 14,
+    zIndex: 2,
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF7EF',
+  },
+  favoriteButtonText: {
+    color: '#9C3E4E',
+    fontSize: 18,
+    fontWeight: '700',
   },
   cardContent: {
     paddingBottom: 18,

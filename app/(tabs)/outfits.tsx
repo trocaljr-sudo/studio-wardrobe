@@ -15,6 +15,8 @@ import {
 } from 'react-native';
 
 import { fetchOccasions, fetchOutfits, type Occasion, type OutfitSummary } from '../../lib/outfits';
+import { fetchPersonalizationSnapshot, toggleFavoriteOutfit } from '../../lib/personalization';
+import { fetchRecommendations } from '../../lib/recommendations';
 import { useSession } from '../../lib/session';
 import { fetchTags, type Tag } from '../../lib/wardrobe';
 
@@ -27,6 +29,12 @@ export default function OutfitsScreen() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedOccasionId, setSelectedOccasionId] = useState<string | null>(null);
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
+  const [favoriteOutfitIds, setFavoriteOutfitIds] = useState<string[]>([]);
+  const [favoriteOnly, setFavoriteOnly] = useState(false);
+  const [recentlyLikedOnly, setRecentlyLikedOnly] = useState(false);
+  const [goToOnly, setGoToOnly] = useState(false);
+  const [recentlyLikedOutfitIds, setRecentlyLikedOutfitIds] = useState<string[]>([]);
+  const [goToOutfitIds, setGoToOutfitIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -86,8 +94,15 @@ export default function OutfitsScreen() {
       }
 
       try {
-        const nextOutfits = await fetchOutfits(user.id);
+        const [nextOutfits, personalization, recommendationState] = await Promise.all([
+          fetchOutfits(user.id),
+          fetchPersonalizationSnapshot(user.id),
+          fetchRecommendations(user.id),
+        ]);
         setOutfits(nextOutfits);
+        setFavoriteOutfitIds(personalization.favoriteOutfitIds);
+        setRecentlyLikedOutfitIds(recommendationState.styleProfile.recentlyLikedOutfitIds);
+        setGoToOutfitIds(recommendationState.styleProfile.goToOutfitIds);
         setErrorMessage(null);
       } catch (error) {
         const message =
@@ -124,11 +139,31 @@ export default function OutfitsScreen() {
     const occasionMatches =
       !selectedOccasionId || outfit.occasions.some((occasion) => occasion.id === selectedOccasionId);
     const tagMatches = !selectedTagId || outfit.tags.some((tag) => tag.id === selectedTagId);
+    const favoriteMatches = !favoriteOnly || favoriteOutfitIds.includes(outfit.id);
+    const likedMatches = !recentlyLikedOnly || recentlyLikedOutfitIds.includes(outfit.id);
+    const goToMatches = !goToOnly || goToOutfitIds.includes(outfit.id);
 
-    return searchMatches && occasionMatches && tagMatches;
+    return searchMatches && occasionMatches && tagMatches && favoriteMatches && likedMatches && goToMatches;
   });
 
-  const hasActiveFilters = !!debouncedSearch || !!selectedOccasionId || !!selectedTagId;
+  const hasActiveFilters =
+    !!debouncedSearch || !!selectedOccasionId || !!selectedTagId || favoriteOnly || recentlyLikedOnly || goToOnly;
+
+  const handleToggleFavorite = async (outfitId: string) => {
+    if (!user) {
+      return;
+    }
+
+    try {
+      const nextProfile = await toggleFavoriteOutfit(user.id, outfitId);
+      setFavoriteOutfitIds(nextProfile.favoriteOutfitIds);
+      setErrorMessage(null);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to update favorites right now.';
+      setErrorMessage(message);
+    }
+  };
 
   if (loading) {
     return (
@@ -158,6 +193,11 @@ export default function OutfitsScreen() {
         }
         renderItem={({ item }) => (
           <Pressable onPress={() => router.push(`/outfits/${item.id}`)} style={styles.card}>
+            <Pressable onPress={() => handleToggleFavorite(item.id)} style={styles.favoriteButton}>
+              <Text style={styles.favoriteButtonText}>
+                {favoriteOutfitIds.includes(item.id) ? '♥' : '♡'}
+              </Text>
+            </Pressable>
             {item.imageUrl ? (
               <Image source={{ uri: item.imageUrl }} style={styles.image} />
             ) : (
@@ -191,6 +231,38 @@ export default function OutfitsScreen() {
               style={styles.searchInput}
               value={searchText}
             />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.filterScroll}
+            >
+              <View style={styles.filterRow}>
+                <Pressable
+                  onPress={() => setFavoriteOnly((current) => !current)}
+                  style={[styles.filterChip, favoriteOnly && styles.filterChipActive]}
+                >
+                  <Text style={[styles.filterChipText, favoriteOnly && styles.filterChipTextActive]}>
+                    Favorites
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setRecentlyLikedOnly((current) => !current)}
+                  style={[styles.filterChip, recentlyLikedOnly && styles.filterChipActive]}
+                >
+                  <Text style={[styles.filterChipText, recentlyLikedOnly && styles.filterChipTextActive]}>
+                    Recently liked
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setGoToOnly((current) => !current)}
+                  style={[styles.filterChip, goToOnly && styles.filterChipActive]}
+                >
+                  <Text style={[styles.filterChipText, goToOnly && styles.filterChipTextActive]}>
+                    Go-to outfits
+                  </Text>
+                </Pressable>
+              </View>
+            </ScrollView>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -270,6 +342,9 @@ export default function OutfitsScreen() {
                     Occasion: {occasions.find((occasion) => occasion.id === selectedOccasionId)?.name}
                   </Text>
                 ) : null}
+                {favoriteOnly ? <Text style={styles.activeFilterText}>Favorites only</Text> : null}
+                {recentlyLikedOnly ? <Text style={styles.activeFilterText}>Recently liked</Text> : null}
+                {goToOnly ? <Text style={styles.activeFilterText}>Go-to outfits</Text> : null}
                 {selectedTagId ? (
                   <Text style={styles.activeFilterText}>
                     Tag: {tags.find((tag) => tag.id === selectedTagId)?.name}
@@ -436,6 +511,24 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     overflow: 'hidden',
+    position: 'relative',
+  },
+  favoriteButton: {
+    position: 'absolute',
+    right: 14,
+    top: 14,
+    zIndex: 2,
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF7EF',
+  },
+  favoriteButtonText: {
+    color: '#9C3E4E',
+    fontSize: 18,
+    fontWeight: '700',
   },
   image: {
     height: 180,

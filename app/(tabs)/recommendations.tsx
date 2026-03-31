@@ -20,6 +20,7 @@ import {
   type RecommendedItem,
   type RecommendedOutfit,
 } from '../../lib/recommendations';
+import { recordFeedback, toggleFavoriteOutfit } from '../../lib/personalization';
 import { useSession } from '../../lib/session';
 
 type ScreenState = Awaited<ReturnType<typeof fetchRecommendations>>;
@@ -117,6 +118,46 @@ export default function RecommendationsScreen() {
 
   const activeEvent = state?.upcomingEvents.find((event) => event.id === selectedEventId) ?? null;
 
+  const handleOutfitFeedback = async (
+    recommendation: RecommendedOutfit,
+    signal: 'like' | 'dislike',
+    source: 'ai' | 'rules'
+  ) => {
+    if (!user) {
+      return;
+    }
+
+    try {
+      await recordFeedback({
+        userId: user.id,
+        targetType: 'outfit',
+        targetId: recommendation.outfit.id,
+        signal,
+        source,
+      });
+      await loadRecommendations(selectedOccasionId);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to save that feedback right now.';
+      setErrorMessage(message);
+    }
+  };
+
+  const handleToggleFavorite = async (outfitId: string) => {
+    if (!user) {
+      return;
+    }
+
+    try {
+      await toggleFavoriteOutfit(user.id, outfitId);
+      await loadRecommendations(selectedOccasionId);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to update favorites right now.';
+      setErrorMessage(message);
+    }
+  };
+
   const renderOutfitCard = (recommendation: RecommendedOutfit) => (
     <Pressable
       key={recommendation.outfit.id}
@@ -138,6 +179,42 @@ export default function RecommendationsScreen() {
             {reason}
           </Text>
         ))}
+        <View style={styles.actionRow}>
+          <Pressable
+            onPress={() => handleToggleFavorite(recommendation.outfit.id)}
+            style={styles.smallChip}
+          >
+            <Text style={styles.smallChipText}>
+              {recommendation.isFavorite ? '♥ Favorite' : '♡ Favorite'}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => handleOutfitFeedback(recommendation, 'like', 'rules')}
+            style={[styles.smallChip, recommendation.feedbackSignal === 'like' && styles.smallChipActive]}
+          >
+            <Text
+              style={[
+                styles.smallChipText,
+                recommendation.feedbackSignal === 'like' && styles.smallChipTextActive,
+              ]}
+            >
+              👍 Like
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => handleOutfitFeedback(recommendation, 'dislike', 'rules')}
+            style={[styles.smallChip, recommendation.feedbackSignal === 'dislike' && styles.smallChipActive]}
+          >
+            <Text
+              style={[
+                styles.smallChipText,
+                recommendation.feedbackSignal === 'dislike' && styles.smallChipTextActive,
+              ]}
+            >
+              👎 Dislike
+            </Text>
+          </Pressable>
+        </View>
       </View>
     </Pressable>
   );
@@ -263,6 +340,15 @@ export default function RecommendationsScreen() {
 
         {mode === 'best-match' ? (
           <View style={styles.section}>
+            {state?.personalizedOutfits.length ? (
+              <>
+                <Text style={styles.sectionTitle}>Based on your style</Text>
+                <Text style={styles.sectionBody}>
+                  {state.styleProfile.summaryLines[0] ?? 'These are the looks that best match what you keep favoriting and liking.'}
+                </Text>
+                {state.personalizedOutfits.map(renderOutfitCard)}
+              </>
+            ) : null}
             <Text style={styles.sectionTitle}>
               {occasionName ? `${occasionName} outfit matches` : 'Best outfit matches'}
             </Text>
@@ -519,6 +605,31 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     color: '#5A361A',
     fontWeight: '700',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  smallChip: {
+    backgroundColor: '#FFF9F2',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E0D1C1',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  smallChipActive: {
+    backgroundColor: '#E8D8CA',
+    borderColor: '#8C5E3C',
+  },
+  smallChipText: {
+    color: '#5D524A',
+    fontWeight: '700',
+  },
+  smallChipTextActive: {
+    color: '#5A361A',
   },
   emptyBox: {
     borderRadius: 20,

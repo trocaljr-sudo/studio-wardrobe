@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { type StylePreset } from '../../lib/style-ai-prompt';
+import { recordFeedback } from '../../lib/personalization';
 import {
   type AIContextBundle,
   requestAIStyling,
@@ -113,6 +114,14 @@ export default function StyleAIScreen() {
         itemIds: suggestion.itemIds,
         occasionId,
       });
+      await recordFeedback({
+        userId: user.id,
+        targetType: suggestion.sourceOutfitId ? 'outfit' : 'suggestion',
+        targetId: suggestion.sourceOutfitId ?? null,
+        itemIds: suggestion.itemIds,
+        signal: 'like',
+        source: 'ai',
+      });
       router.push(`/outfits/${outfit.id}`);
     } catch (error) {
       const message =
@@ -120,6 +129,31 @@ export default function StyleAIScreen() {
       setErrorMessage(message);
     } finally {
       setSavingId(null);
+    }
+  };
+
+  const handleSuggestionFeedback = async (
+    suggestion: AIStylingResult['suggestions'][number],
+    signal: 'like' | 'dislike'
+  ) => {
+    if (!user) {
+      return;
+    }
+
+    try {
+      await recordFeedback({
+        userId: user.id,
+        targetType: suggestion.sourceOutfitId ? 'outfit' : 'suggestion',
+        targetId: suggestion.sourceOutfitId ?? null,
+        itemIds: suggestion.itemIds,
+        signal,
+        source: 'ai',
+      });
+      setErrorMessage(null);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to save that AI feedback right now.';
+      setErrorMessage(message);
     }
   };
 
@@ -242,6 +276,18 @@ export default function StyleAIScreen() {
                           : 'Exploratory mix built from your wardrobe'}
                       </Text>
                       <View style={styles.actionRow}>
+                        <Pressable
+                          onPress={() => handleSuggestionFeedback(suggestion, 'like')}
+                          style={styles.secondaryButton}
+                        >
+                          <Text style={styles.secondaryButtonText}>👍 Like</Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => handleSuggestionFeedback(suggestion, 'dislike')}
+                          style={styles.secondaryButton}
+                        >
+                          <Text style={styles.secondaryButtonText}>👎 Dislike</Text>
+                        </Pressable>
                         {suggestion.sourceOutfitId ? (
                           <Pressable
                             onPress={() => router.push(`/outfits/${suggestion.sourceOutfitId}`)}

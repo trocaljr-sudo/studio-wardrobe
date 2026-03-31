@@ -53,6 +53,7 @@ export type AIContextBundle = {
   outfitDetails: OutfitDetail[];
   outfits: OutfitSummary[];
   recommendedOutfits: RecommendedOutfit[];
+  styleProfile: Awaited<ReturnType<typeof fetchRecommendations>>['styleProfile'];
   upcomingEvents: EventSummary[];
 };
 
@@ -142,6 +143,7 @@ export async function buildAIWardrobeContext(
         ? (await fetchEventRecommendations(userId, request.eventId)).recommendations
         : recommendationState.recommendedOutfits,
     builtLooks: recommendationState.builtLooks,
+    styleProfile: recommendationState.styleProfile,
     upcomingEvents: recommendationState.upcomingEvents,
   } as AIContextBundle;
 }
@@ -158,6 +160,7 @@ export async function requestAIStyling(
     events: context.upcomingEvents,
     recommendedOutfits: context.recommendedOutfits,
     builtLooks: context.builtLooks,
+    styleProfile: context.styleProfile,
   });
   const appConfig = Constants.expoConfig?.extra ?? {};
   const functionName = appConfig.styleAiFunctionName ?? 'style-ai';
@@ -169,6 +172,7 @@ export async function requestAIStyling(
         context: payload,
         instructions: buildStyleAIInstructions({
           event: context.event,
+          profileSummaryLines: context.styleProfile.summaryLines,
           prompt: request.prompt,
           count: request.count,
           preset: request.preset,

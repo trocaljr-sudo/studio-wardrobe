@@ -49,6 +49,17 @@ export type AIContextPayload = {
     reasons: string[];
     score: number;
   }[];
+  styleProfile: {
+    favoriteBrands: string[];
+    favoriteItemIds: string[];
+    favoriteOutfitIds: string[];
+    goToOutfitIds: string[];
+    preferredCategoryNames: string[];
+    preferredColors: string[];
+    preferredOccasionNames: string[];
+    recentlyLikedOutfitIds: string[];
+    summaryLines: string[];
+  };
 };
 
 export type AIPromptRequest = {
@@ -66,6 +77,17 @@ export function createAIContextPayload(input: {
   outfitDetails: OutfitDetail[];
   outfits: OutfitSummary[];
   recommendedOutfits: RecommendedOutfit[];
+  styleProfile: {
+    favoriteBrands: string[];
+    favoriteItemIds: string[];
+    favoriteOutfitIds: string[];
+    goToOutfitIds: string[];
+    preferredCategoryNames: string[];
+    preferredColors: string[];
+    preferredOccasionNames: string[];
+    recentlyLikedOutfitIds: string[];
+    summaryLines: string[];
+  };
 }) {
   const outfitDetailsById = new Map(input.outfitDetails.map((outfit) => [outfit.id, outfit]));
 
@@ -103,11 +125,13 @@ export function createAIContextPayload(input: {
       reasons: look.reasons,
       items: look.items.map((item) => ({ id: item.id, name: item.name })),
     })),
+    styleProfile: input.styleProfile,
   } as AIContextPayload;
 }
 
 export function buildStyleAIInstructions(input: {
   event: EventSummary | null;
+  profileSummaryLines: string[];
   prompt: string;
   count: number;
   preset?: StylePreset | null;
@@ -118,6 +142,10 @@ export function buildStyleAIInstructions(input: {
   const eventLine = input.event
     ? `The request is tied to the event "${input.event.title}" on ${input.event.scheduledDate ?? 'an unscheduled date'}${input.event.occasion ? ` with the occasion ${input.event.occasion.name}` : ''}.`
     : 'This request is not tied to a specific event.';
+  const profileLine =
+    input.profileSummaryLines.length > 0
+      ? `Personal style signals to respect: ${input.profileSummaryLines.join(' ')}`
+      : 'There are not many personalized signals yet, so stay grounded in rule-based recommendations.';
 
   return [
     'You are Studio Wardrobe, a premium styling assistant.',
@@ -129,6 +157,7 @@ export function buildStyleAIInstructions(input: {
     'For gap analysis, recommend category-level or item-type-level additions only.',
     presetLine,
     eventLine,
+    profileLine,
     `The user asked: ${input.prompt}`,
     `Return up to ${input.count} outfit suggestions when the focus is outfit-suggestions.`,
   ].join('\n');
