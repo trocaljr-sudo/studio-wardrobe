@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 
 import { useSession } from '../../lib/session';
+import { AmbientBackground } from '../../lib/ambient-background';
 import { useTheme } from '../../lib/theme';
 import {
   type Brand,
@@ -285,6 +286,7 @@ export default function AddItemScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AmbientBackground />
       <KeyboardAvoidingView
         behavior={Platform.select({ ios: 'padding', android: undefined })}
         style={styles.container}
@@ -476,7 +478,7 @@ export default function AddItemScreen() {
 const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,

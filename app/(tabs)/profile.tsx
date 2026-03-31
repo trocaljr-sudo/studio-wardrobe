@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
+import { AmbientBackground } from '../../lib/ambient-background';
 import { useSession } from '../../lib/session';
 import { supabase } from '../../lib/supabase';
 import { type ThemeMode, useTheme } from '../../lib/theme';
@@ -40,6 +41,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AmbientBackground />
       <View style={styles.container}>
         <Text style={styles.title}>Settings</Text>
         <Text style={styles.body}>
@@ -104,7 +106,7 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
   StyleSheet.create({
     safeArea: {
       flex: 1,
-      backgroundColor: 'transparent',
+      backgroundColor: colors.background,
     },
     container: {
       flex: 1,

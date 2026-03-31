@@ -17,6 +17,7 @@ import {
 import { fetchOccasions, fetchOutfits, type Occasion, type OutfitSummary } from '../../lib/outfits';
 import { fetchPersonalizationSnapshot, toggleFavoriteOutfit } from '../../lib/personalization';
 import { fetchRecommendations } from '../../lib/recommendations';
+import { AmbientBackground } from '../../lib/ambient-background';
 import { useSession } from '../../lib/session';
 import { useTheme } from '../../lib/theme';
 import { fetchTags, type Tag } from '../../lib/wardrobe';
@@ -181,6 +182,7 @@ export default function OutfitsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AmbientBackground />
       <FlatList
         contentContainerStyle={styles.listContent}
         data={filteredOutfits}
@@ -391,7 +393,7 @@ export default function OutfitsScreen() {
 const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: colors.background,
   },
   listContent: {
     padding: 24,

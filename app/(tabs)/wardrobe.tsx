@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 
 import { useSession } from '../../lib/session';
+import { AmbientBackground } from '../../lib/ambient-background';
 import { useTheme } from '../../lib/theme';
 import { fetchPersonalizationSnapshot, toggleFavoriteItem } from '../../lib/personalization';
 import {
@@ -231,6 +232,7 @@ export default function WardrobeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AmbientBackground />
       <FlatList
         key={viewMode}
         contentContainerStyle={styles.listContent}
@@ -571,7 +573,7 @@ export default function WardrobeScreen() {
 const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: colors.background,
   },
   listContent: {
     padding: 24,

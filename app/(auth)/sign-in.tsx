@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import { supabase } from '../../lib/supabase';
+import { AmbientBackground } from '../../lib/ambient-background';
 import { useTheme } from '../../lib/theme';
 
 export default function SignInScreen() {
@@ -66,6 +67,7 @@ export default function SignInScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AmbientBackground />
       <KeyboardAvoidingView
         behavior={Platform.select({ ios: 'padding', android: undefined })}
         style={styles.container}
@@ -122,7 +124,7 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
   StyleSheet.create({
     safeArea: {
       flex: 1,
-      backgroundColor: 'transparent',
+      backgroundColor: colors.background,
     },
     container: {
       flex: 1,

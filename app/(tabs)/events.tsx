@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 
 import { fetchEvents, type EventSummary } from '../../lib/events';
+import { AmbientBackground } from '../../lib/ambient-background';
 import { useSession } from '../../lib/session';
 import { useTheme } from '../../lib/theme';
 
@@ -104,6 +105,7 @@ export default function EventsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AmbientBackground />
       <SectionList
         contentContainerStyle={styles.listContent}
         keyExtractor={(item) => String(item.id)}
@@ -182,7 +184,7 @@ export default function EventsScreen() {
 const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: colors.background,
   },
   listContent: {
     paddingHorizontal: 20,

@@ -51,7 +51,7 @@ export default function TabsLayout() {
           position: 'absolute',
         },
         sceneStyle: {
-          backgroundColor: 'transparent',
+          backgroundColor: colors.background,
         },
         tabBarLabelStyle: {
           fontSize: 12,
@@ -131,7 +131,7 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
   StyleSheet.create({
     safeArea: {
       flex: 1,
-      backgroundColor: 'transparent',
+      backgroundColor: colors.background,
     },
     loading: {
       flex: 1,
