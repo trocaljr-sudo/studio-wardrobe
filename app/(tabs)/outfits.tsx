@@ -86,7 +86,7 @@ export default function OutfitsScreen() {
           />
         }
         renderItem={({ item }) => (
-          <View style={styles.card}>
+          <Pressable onPress={() => router.push(`/outfits/${item.id}`)} style={styles.card}>
             {item.imageUrl ? (
               <Image source={{ uri: item.imageUrl }} style={styles.image} />
             ) : (
@@ -104,7 +104,7 @@ export default function OutfitsScreen() {
                 <Text style={styles.cardDetail}>Tags: {item.tags.join(', ')}</Text>
               ) : null}
             </View>
-          </View>
+          </Pressable>
         )}
         ListHeaderComponent={
           <View style={styles.header}>

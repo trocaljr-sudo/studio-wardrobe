@@ -17,6 +17,17 @@ export type OutfitSummary = {
   tags: string[];
 };
 
+export type OutfitDetail = {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string | null;
+  imageUrl: string | null;
+  items: ClothingItem[];
+  occasions: Occasion[];
+  tags: { id: string; name: string }[];
+};
+
 type OutfitRow = {
   id: string;
   name: string;
@@ -32,6 +43,11 @@ type OutfitItemRow = {
     id: string;
     name: string;
     image_path: string | null;
+    color: string | null;
+    category_id: string | null;
+    brand_id: string | null;
+    categories: { id: string; name: string }[] | null;
+    brands: { id: string; name: string }[] | null;
   }[] | null;
 };
 
@@ -44,6 +60,59 @@ type OutfitTagRow = {
   outfit_id: string;
   tags: { id: string; name: string }[] | null;
 };
+
+async function createSignedImageUrl(path: string | null) {
+  if (!path) {
+    return null;
+  }
+
+  const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+    .from(supabaseImagesBucket)
+    .createSignedUrl(path, 60 * 60);
+
+  if (signedUrlError) {
+    return null;
+  }
+
+  return signedUrlData.signedUrl;
+}
+
+function mapClothingItem(
+  clothingItem:
+    | {
+        id: string;
+        name: string;
+        image_path: string | null;
+        color: string | null;
+        category_id: string | null;
+        brand_id: string | null;
+        categories: { id: string; name: string }[] | null;
+        brands: { id: string; name: string }[] | null;
+      }
+    | undefined,
+  imageUrl: string | null
+): ClothingItem | null {
+  if (!clothingItem) {
+    return null;
+  }
+
+  return {
+    id: clothingItem.id,
+    name: clothingItem.name,
+    color: clothingItem.color,
+    created_at: null,
+    wardrobe_id: '',
+    owner_id: '',
+    image_path: clothingItem.image_path,
+    imageUrl,
+    size: null,
+    material: null,
+    category_id: clothingItem.category_id,
+    brand_id: clothingItem.brand_id,
+    categoryName: clothingItem.categories?.[0]?.name ?? null,
+    brandName: clothingItem.brands?.[0]?.name ?? null,
+  };
+}
 
 async function cleanupOutfit(outfitId: string) {
   await supabase.from('outfit_items').delete().eq('outfit_id', outfitId);
@@ -213,21 +282,7 @@ export async function fetchOutfits(userId: string) {
           ?.map((row) => row.clothing_items?.[0]?.image_path ?? null)
           .find(Boolean) ?? null;
 
-      if (!firstItemImagePath) {
-        previewUrlMap.set(outfit.id, null);
-        return;
-      }
-
-      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-        .from(supabaseImagesBucket)
-        .createSignedUrl(firstItemImagePath, 60 * 60);
-
-      if (signedUrlError) {
-        previewUrlMap.set(outfit.id, null);
-        return;
-      }
-
-      previewUrlMap.set(outfit.id, signedUrlData.signedUrl);
+      previewUrlMap.set(outfit.id, await createSignedImageUrl(firstItemImagePath));
     })
   );
 
@@ -241,4 +296,200 @@ export async function fetchOutfits(userId: string) {
     occasions: occasionsByOutfit.get(outfit.id) ?? [],
     tags: tagsByOutfit.get(outfit.id) ?? [],
   }));
+}
+
+export async function fetchOutfitDetail(userId: string, outfitId: string) {
+  await ensureActiveWardrobe(userId);
+
+  const { data: outfit, error: outfitError } = await supabase
+    .from('outfits')
+    .select('id, name, description, created_at')
+    .eq('id', outfitId)
+    .eq('owner_id', userId)
+    .maybeSingle<OutfitRow>();
+
+  if (outfitError) {
+    throw outfitError;
+  }
+
+  if (!outfit) {
+    throw new Error('Outfit not found.');
+  }
+
+  const [{ data: outfitItems, error: itemsError }, { data: outfitOccasions, error: occasionsError }, { data: outfitTags, error: tagsError }] =
+    await Promise.all([
+      supabase
+        .from('outfit_items')
+        .select(
+          'outfit_id, clothing_item_id, position, clothing_items(id, name, image_path, color, category_id, brand_id, categories(id, name), brands(id, name))'
+        )
+        .eq('outfit_id', outfitId)
+        .order('position', { ascending: true }),
+      supabase.from('outfit_occasions').select('outfit_id, occasions(id, name)').eq('outfit_id', outfitId),
+      supabase.from('outfit_tags').select('outfit_id, tags(id, name)').eq('outfit_id', outfitId),
+    ]);
+
+  if (itemsError) {
+    throw itemsError;
+  }
+
+  if (occasionsError) {
+    throw occasionsError;
+  }
+
+  if (tagsError) {
+    throw tagsError;
+  }
+
+  const outfitItemRows = (outfitItems ?? []) as OutfitItemRow[];
+  const itemImageUrls = new Map<string, string | null>();
+
+  await Promise.all(
+    outfitItemRows.map(async (row) => {
+      const clothingItem = row.clothing_items?.[0];
+      if (!clothingItem) {
+        return;
+      }
+
+      itemImageUrls.set(clothingItem.id, await createSignedImageUrl(clothingItem.image_path));
+    })
+  );
+
+  const items = outfitItemRows
+    .map((row) =>
+      mapClothingItem(row.clothing_items?.[0], itemImageUrls.get(row.clothing_items?.[0]?.id ?? '') ?? null)
+    )
+    .filter(Boolean) as ClothingItem[];
+
+  const previewUrl = await createSignedImageUrl(items[0]?.image_path ?? null);
+
+  const occasions =
+    ((outfitOccasions ?? []) as OutfitOccasionRow[])
+      .flatMap((row) => row.occasions ?? [])
+      .map((occasion) => ({ id: occasion.id, name: occasion.name })) ?? [];
+
+  const tags =
+    ((outfitTags ?? []) as OutfitTagRow[])
+      .flatMap((row) => row.tags ?? [])
+      .map((tag) => ({ id: tag.id, name: tag.name })) ?? [];
+
+  return {
+    id: outfit.id,
+    name: outfit.name,
+    description: outfit.description,
+    created_at: outfit.created_at,
+    imageUrl: previewUrl,
+    items,
+    occasions,
+    tags,
+  } as OutfitDetail;
+}
+
+export async function updateOutfit(input: {
+  clothingItems: ClothingItem[];
+  description?: string;
+  name: string;
+  occasionIds?: string[];
+  outfitId: string;
+  ownerId: string;
+  tagIds?: string[];
+}) {
+  const { error: updateError } = await supabase
+    .from('outfits')
+    .update({
+      name: input.name.trim(),
+      description: input.description?.trim() ? input.description.trim() : null,
+    })
+    .eq('id', input.outfitId)
+    .eq('owner_id', input.ownerId);
+
+  if (updateError) {
+    throw updateError;
+  }
+
+  const { error: deleteItemsError } = await supabase
+    .from('outfit_items')
+    .delete()
+    .eq('outfit_id', input.outfitId);
+
+  if (deleteItemsError) {
+    throw deleteItemsError;
+  }
+
+  const outfitItemRows = input.clothingItems.map((item, index) => ({
+    outfit_id: input.outfitId,
+    clothing_item_id: item.id,
+    position: index,
+  }));
+
+  const { error: insertItemsError } = await supabase.from('outfit_items').insert(outfitItemRows);
+
+  if (insertItemsError) {
+    throw insertItemsError;
+  }
+
+  const { error: deleteOccasionsError } = await supabase
+    .from('outfit_occasions')
+    .delete()
+    .eq('outfit_id', input.outfitId);
+
+  if (deleteOccasionsError) {
+    throw deleteOccasionsError;
+  }
+
+  if (input.occasionIds && input.occasionIds.length > 0) {
+    const occasionRows = input.occasionIds.map((occasionId) => ({
+      outfit_id: input.outfitId,
+      occasion_id: occasionId,
+    }));
+
+    const { error: insertOccasionsError } = await supabase
+      .from('outfit_occasions')
+      .insert(occasionRows);
+
+    if (insertOccasionsError) {
+      throw insertOccasionsError;
+    }
+  }
+
+  const { error: deleteTagsError } = await supabase
+    .from('outfit_tags')
+    .delete()
+    .eq('outfit_id', input.outfitId);
+
+  if (deleteTagsError) {
+    throw deleteTagsError;
+  }
+
+  if (input.tagIds && input.tagIds.length > 0) {
+    const tagRows = input.tagIds.map((tagId) => ({
+      outfit_id: input.outfitId,
+      tag_id: tagId,
+    }));
+
+    const { error: insertTagsError } = await supabase.from('outfit_tags').insert(tagRows);
+
+    if (insertTagsError) {
+      throw insertTagsError;
+    }
+  }
+}
+
+export async function deleteOutfit(ownerId: string, outfitId: string) {
+  const { data: outfit, error: outfitLookupError } = await supabase
+    .from('outfits')
+    .select('id')
+    .eq('id', outfitId)
+    .eq('owner_id', ownerId)
+    .maybeSingle<{ id: string }>();
+
+  if (outfitLookupError) {
+    throw outfitLookupError;
+  }
+
+  if (!outfit) {
+    throw new Error('Outfit not found.');
+  }
+
+  await cleanupOutfit(outfitId);
 }
