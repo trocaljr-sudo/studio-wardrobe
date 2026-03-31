@@ -15,6 +15,8 @@ export type ClothingItem = {
   brand_id: string | null;
   categoryName: string | null;
   brandName: string | null;
+  tagIds: string[];
+  tagNames: string[];
 };
 
 export type Category = {
@@ -174,6 +176,32 @@ export async function fetchWardrobeItems(userId: string, categoryId?: string | n
 
   const clothingItems = (data ?? []) as ClothingItemRow[];
   const imageUrlMap = new Map<string, string | null>();
+  const itemIds = clothingItems.map((item) => item.id);
+  const tagMap = new Map<string, { ids: string[]; names: string[] }>();
+
+  if (itemIds.length > 0) {
+    const { data: itemTags, error: itemTagsError } = await supabase
+      .from('clothing_item_tags')
+      .select('clothing_item_id, tags(id, name)')
+      .in('clothing_item_id', itemIds);
+
+    if (itemTagsError) {
+      throw itemTagsError;
+    }
+
+    (itemTags ?? []).forEach((row: any) => {
+      const clothingItemId = row.clothing_item_id as string;
+      const tag = row.tags?.[0];
+      if (!clothingItemId || !tag) {
+        return;
+      }
+
+      const existing = tagMap.get(clothingItemId) ?? { ids: [], names: [] };
+      existing.ids.push(tag.id);
+      existing.names.push(tag.name);
+      tagMap.set(clothingItemId, existing);
+    });
+  }
 
   await Promise.all(
     clothingItems.map(async (item) => {
@@ -201,6 +229,8 @@ export async function fetchWardrobeItems(userId: string, categoryId?: string | n
       imageUrl: imageUrlMap.get(item.id) ?? null,
       categoryName: getFirstRelationName(item.categories),
       brandName: getFirstRelationName(item.brands),
+      tagIds: tagMap.get(item.id)?.ids ?? [],
+      tagNames: tagMap.get(item.id)?.names ?? [],
     })) as ClothingItem[],
   };
 }
@@ -288,6 +318,8 @@ export async function createClothingItem(input: {
     imageUrl: null,
     categoryName: getFirstRelationName(clothingItem.categories),
     brandName: getFirstRelationName(clothingItem.brands),
+    tagIds: input.tagIds ?? [],
+    tagNames: [],
   } as ClothingItem;
 }
 

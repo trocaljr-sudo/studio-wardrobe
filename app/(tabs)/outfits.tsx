@@ -1,5 +1,5 @@
 import { useFocusEffect, router } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -7,20 +7,68 @@ import {
   Pressable,
   RefreshControl,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
-import { fetchOutfits, type OutfitSummary } from '../../lib/outfits';
+import { fetchOccasions, fetchOutfits, type Occasion, type OutfitSummary } from '../../lib/outfits';
 import { useSession } from '../../lib/session';
+import { fetchTags, type Tag } from '../../lib/wardrobe';
 
 export default function OutfitsScreen() {
   const { user } = useSession();
   const [outfits, setOutfits] = useState<OutfitSummary[]>([]);
+  const [occasions, setOccasions] = useState<Occasion[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [searchText, setSearchText] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [selectedOccasionId, setSelectedOccasionId] = useState<string | null>(null);
+  const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadMetadata = async () => {
+      try {
+        const [nextOccasions, nextTags] = await Promise.all([fetchOccasions(), fetchTags()]);
+        if (!mounted) {
+          return;
+        }
+
+        setOccasions(nextOccasions);
+        setTags(nextTags);
+      } catch {
+        if (!mounted) {
+          return;
+        }
+
+        setOccasions([]);
+        setTags([]);
+      }
+    };
+
+    loadMetadata();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearch(searchText.trim().toLowerCase());
+    }, 250);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [searchText]);
 
   const loadOutfits = useCallback(
     async (mode: 'initial' | 'refresh' = 'initial') => {
@@ -59,6 +107,29 @@ export default function OutfitsScreen() {
     }, [loadOutfits])
   );
 
+  const clearFilters = () => {
+    setSearchText('');
+    setDebouncedSearch('');
+    setSelectedOccasionId(null);
+    setSelectedTagId(null);
+  };
+
+  const filteredOutfits = outfits.filter((outfit) => {
+    const searchMatches =
+      !debouncedSearch ||
+      [outfit.name, outfit.description, ...outfit.occasions.map((occasion) => occasion.name), ...outfit.tags.map((tag) => tag.name)]
+        .filter(Boolean)
+        .some((value) => value!.toLowerCase().includes(debouncedSearch));
+
+    const occasionMatches =
+      !selectedOccasionId || outfit.occasions.some((occasion) => occasion.id === selectedOccasionId);
+    const tagMatches = !selectedTagId || outfit.tags.some((tag) => tag.id === selectedTagId);
+
+    return searchMatches && occasionMatches && tagMatches;
+  });
+
+  const hasActiveFilters = !!debouncedSearch || !!selectedOccasionId || !!selectedTagId;
+
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -74,7 +145,7 @@ export default function OutfitsScreen() {
     <SafeAreaView style={styles.safeArea}>
       <FlatList
         contentContainerStyle={styles.listContent}
-        data={outfits}
+        data={filteredOutfits}
         keyExtractor={(item) => item.id}
         refreshControl={
           <RefreshControl
@@ -98,10 +169,10 @@ export default function OutfitsScreen() {
               <Text style={styles.cardTitle}>{item.name}</Text>
               <Text style={styles.cardMeta}>{item.itemCount} items</Text>
               {item.occasions.length > 0 ? (
-                <Text style={styles.cardDetail}>{item.occasions.join(', ')}</Text>
+                <Text style={styles.cardDetail}>{item.occasions.map((occasion) => occasion.name).join(', ')}</Text>
               ) : null}
               {item.tags.length > 0 ? (
-                <Text style={styles.cardDetail}>Tags: {item.tags.join(', ')}</Text>
+                <Text style={styles.cardDetail}>Tags: {item.tags.map((tag) => tag.name).join(', ')}</Text>
               ) : null}
             </View>
           </Pressable>
@@ -112,6 +183,103 @@ export default function OutfitsScreen() {
             <Text style={styles.body}>
               Save looks built from your wardrobe items and tag them for real-world use.
             </Text>
+            <TextInput
+              autoCapitalize="none"
+              onChangeText={setSearchText}
+              placeholder="Search outfits, occasions, or tags..."
+              placeholderTextColor="#8B8B95"
+              style={styles.searchInput}
+              value={searchText}
+            />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.filterScroll}
+            >
+              <View style={styles.filterRow}>
+                <Text style={styles.filterLabel}>Occasion</Text>
+                <Pressable
+                  onPress={() => setSelectedOccasionId(null)}
+                  style={[styles.filterChip, !selectedOccasionId && styles.filterChipActive]}
+                >
+                  <Text
+                    style={[styles.filterChipText, !selectedOccasionId && styles.filterChipTextActive]}
+                  >
+                    All
+                  </Text>
+                </Pressable>
+                {occasions.map((occasion) => (
+                  <Pressable
+                    key={occasion.id}
+                    onPress={() => setSelectedOccasionId(occasion.id)}
+                    style={[
+                      styles.filterChip,
+                      selectedOccasionId === occasion.id && styles.filterChipActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        selectedOccasionId === occasion.id && styles.filterChipTextActive,
+                      ]}
+                    >
+                      {occasion.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </ScrollView>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.filterScroll}
+            >
+              <View style={styles.filterRow}>
+                <Text style={styles.filterLabel}>Tag</Text>
+                <Pressable
+                  onPress={() => setSelectedTagId(null)}
+                  style={[styles.filterChip, !selectedTagId && styles.filterChipActive]}
+                >
+                  <Text style={[styles.filterChipText, !selectedTagId && styles.filterChipTextActive]}>
+                    All
+                  </Text>
+                </Pressable>
+                {tags.map((tag) => (
+                  <Pressable
+                    key={tag.id}
+                    onPress={() => setSelectedTagId(tag.id)}
+                    style={[styles.filterChip, selectedTagId === tag.id && styles.filterChipActive]}
+                  >
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        selectedTagId === tag.id && styles.filterChipTextActive,
+                      ]}
+                    >
+                      {tag.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </ScrollView>
+            {hasActiveFilters ? (
+              <View style={styles.activeFilters}>
+                {debouncedSearch ? <Text style={styles.activeFilterText}>Search: {searchText}</Text> : null}
+                {selectedOccasionId ? (
+                  <Text style={styles.activeFilterText}>
+                    Occasion: {occasions.find((occasion) => occasion.id === selectedOccasionId)?.name}
+                  </Text>
+                ) : null}
+                {selectedTagId ? (
+                  <Text style={styles.activeFilterText}>
+                    Tag: {tags.find((tag) => tag.id === selectedTagId)?.name}
+                  </Text>
+                ) : null}
+                <Pressable onPress={clearFilters} style={styles.clearButton}>
+                  <Text style={styles.clearButtonText}>Clear all</Text>
+                </Pressable>
+              </View>
+            ) : null}
             <Pressable onPress={() => router.push('/outfits/new')} style={styles.createButton}>
               <Text style={styles.createButtonText}>Create outfit</Text>
             </Pressable>
@@ -120,9 +288,11 @@ export default function OutfitsScreen() {
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>No outfits yet</Text>
+            <Text style={styles.emptyTitle}>{hasActiveFilters ? 'No outfits match' : 'No outfits yet'}</Text>
             <Text style={styles.emptyBody}>
-              Create your first outfit to start saving complete looks.
+              {hasActiveFilters
+                ? 'Try changing your search or clearing the current filters.'
+                : 'Create your first outfit to start saving complete looks.'}
             </Text>
           </View>
         }
@@ -154,6 +324,80 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 18,
+  },
+  searchInput: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E7D8CA',
+    borderRadius: 16,
+    borderWidth: 1,
+    color: '#201A17',
+    fontSize: 16,
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  filterScroll: {
+    marginTop: 16,
+  },
+  filterRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  filterLabel: {
+    color: '#6B615A',
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  filterChip: {
+    backgroundColor: '#FFFDF9',
+    borderColor: '#E7D8CA',
+    borderRadius: 999,
+    borderWidth: 1,
+    overflow: 'hidden',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  filterChipActive: {
+    backgroundColor: '#201A17',
+    borderColor: '#201A17',
+  },
+  filterChipText: {
+    color: '#6B615A',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  filterChipTextActive: {
+    color: '#F7F1EB',
+  },
+  activeFilters: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 16,
+  },
+  activeFilterText: {
+    backgroundColor: '#EFE6DE',
+    borderRadius: 999,
+    color: '#6B615A',
+    fontSize: 13,
+    overflow: 'hidden',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  clearButton: {
+    alignItems: 'center',
+    backgroundColor: '#201A17',
+    borderRadius: 999,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  clearButtonText: {
+    color: '#F7F1EB',
+    fontSize: 13,
+    fontWeight: '700',
   },
   title: {
     color: '#201A17',

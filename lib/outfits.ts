@@ -13,8 +13,8 @@ export type OutfitSummary = {
   created_at: string | null;
   itemCount: number;
   imageUrl: string | null;
-  occasions: string[];
-  tags: string[];
+  occasions: { id: string; name: string }[];
+  tags: { id: string; name: string }[];
 };
 
 export type OutfitDetail = {
@@ -111,6 +111,8 @@ function mapClothingItem(
     brand_id: clothingItem.brand_id,
     categoryName: clothingItem.categories?.[0]?.name ?? null,
     brandName: clothingItem.brands?.[0]?.name ?? null,
+    tagIds: [],
+    tagNames: [],
   };
 }
 
@@ -259,17 +261,25 @@ export async function fetchOutfits(userId: string) {
   });
 
   const occasionsByOutfit = new Map<string, string[]>();
+  const occasionObjectsByOutfit = new Map<string, { id: string; name: string }[]>();
   ((outfitOccasions ?? []) as OutfitOccasionRow[]).forEach((row) => {
-    const names = row.occasions?.map((occasion) => occasion.name) ?? [];
+    const values = row.occasions?.map((occasion) => ({ id: occasion.id, name: occasion.name })) ?? [];
+    const names = values.map((occasion) => occasion.name);
     const existing = occasionsByOutfit.get(row.outfit_id) ?? [];
     occasionsByOutfit.set(row.outfit_id, [...existing, ...names]);
+    const existingObjects = occasionObjectsByOutfit.get(row.outfit_id) ?? [];
+    occasionObjectsByOutfit.set(row.outfit_id, [...existingObjects, ...values]);
   });
 
   const tagsByOutfit = new Map<string, string[]>();
+  const tagObjectsByOutfit = new Map<string, { id: string; name: string }[]>();
   ((outfitTags ?? []) as OutfitTagRow[]).forEach((row) => {
-    const names = row.tags?.map((tag) => tag.name) ?? [];
+    const values = row.tags?.map((tag) => ({ id: tag.id, name: tag.name })) ?? [];
+    const names = values.map((tag) => tag.name);
     const existing = tagsByOutfit.get(row.outfit_id) ?? [];
     tagsByOutfit.set(row.outfit_id, [...existing, ...names]);
+    const existingObjects = tagObjectsByOutfit.get(row.outfit_id) ?? [];
+    tagObjectsByOutfit.set(row.outfit_id, [...existingObjects, ...values]);
   });
 
   const previewUrlMap = new Map<string, string | null>();
@@ -293,8 +303,8 @@ export async function fetchOutfits(userId: string) {
     created_at: outfit.created_at,
     itemCount: itemsByOutfit.get(outfit.id)?.length ?? 0,
     imageUrl: previewUrlMap.get(outfit.id) ?? null,
-    occasions: occasionsByOutfit.get(outfit.id) ?? [],
-    tags: tagsByOutfit.get(outfit.id) ?? [],
+    occasions: occasionObjectsByOutfit.get(outfit.id) ?? [],
+    tags: tagObjectsByOutfit.get(outfit.id) ?? [],
   }));
 }
 
