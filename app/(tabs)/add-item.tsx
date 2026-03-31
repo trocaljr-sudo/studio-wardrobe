@@ -1,4 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   Image,
@@ -120,6 +121,12 @@ export default function AddItemScreen() {
     setErrorMessage(null);
   };
 
+  const handleRemoveImage = () => {
+    setSelectedImageUri(null);
+    setSelectedImageMimeType(null);
+    setErrorMessage(null);
+  };
+
   const handleSave = async () => {
     if (!user) {
       setErrorMessage('Sign in again before adding an item.');
@@ -167,6 +174,7 @@ export default function AddItemScreen() {
       setSelectedBrandId(null);
       setSelectedTagIds([]);
       setSuccessMessage('Item saved to your wardrobe.');
+      router.replace('/(tabs)/wardrobe');
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unable to save this item right now.';
@@ -191,12 +199,22 @@ export default function AddItemScreen() {
           <View style={styles.form}>
             <Pressable onPress={handlePickImage} style={styles.imagePicker}>
               {selectedImageUri ? (
-                <Image source={{ uri: selectedImageUri }} style={styles.previewImage} />
+                <View style={styles.previewWrap}>
+                  <Image source={{ uri: selectedImageUri }} style={styles.previewImage} />
+                  <View style={styles.imageActions}>
+                    <Pressable onPress={handlePickImage} style={styles.secondaryButton}>
+                      <Text style={styles.secondaryButtonText}>Change photo</Text>
+                    </Pressable>
+                    <Pressable onPress={handleRemoveImage} style={styles.secondaryButton}>
+                      <Text style={styles.secondaryButtonText}>Remove photo</Text>
+                    </Pressable>
+                  </View>
+                </View>
               ) : (
                 <View style={styles.imagePlaceholder}>
                   <Text style={styles.imagePlaceholderTitle}>Pick image</Text>
                   <Text style={styles.imagePlaceholderBody}>
-                    Upload a photo for this clothing item
+                    Upload a photo for this clothing item. You can still save without one.
                   </Text>
                 </View>
               )}
@@ -416,6 +434,26 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     height: 220,
     width: '100%',
+  },
+  previewWrap: {
+    gap: 10,
+  },
+  imageActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  secondaryButton: {
+    backgroundColor: '#FFFDF9',
+    borderColor: '#E7D8CA',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  secondaryButtonText: {
+    color: '#5D534C',
+    fontSize: 13,
+    fontWeight: '600',
   },
   input: {
     backgroundColor: '#FFFFFF',
