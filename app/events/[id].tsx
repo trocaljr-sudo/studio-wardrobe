@@ -523,6 +523,15 @@ export default function EventDetailScreen() {
 
           {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
 
+          {!editing ? (
+            <Pressable
+              onPress={() => router.push(`/style-ai?eventId=${eventId}`)}
+              style={styles.styleAiButton}
+            >
+              <Text style={styles.styleAiButtonText}>Ask Style AI about this event</Text>
+            </Pressable>
+          ) : null}
+
           {editing ? (
             <View style={styles.actionRow}>
               <Pressable
@@ -747,6 +756,17 @@ const styles = StyleSheet.create({
   },
   assignButtonText: {
     color: '#5A361A',
+    fontWeight: '700',
+  },
+  styleAiButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#201A17',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+  },
+  styleAiButtonText: {
+    color: '#F7F1EB',
     fontWeight: '700',
   },
   outfitName: {

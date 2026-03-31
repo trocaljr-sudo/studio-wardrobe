@@ -214,6 +214,9 @@ export default function RecommendationsScreen() {
           <Text style={styles.body}>
             Rule-based styling picks that stay grounded in your saved outfits, events, and unused wardrobe pieces.
           </Text>
+          <Pressable onPress={() => router.push('/style-ai')} style={styles.aiButton}>
+            <Text style={styles.aiButtonText}>Open Style AI</Text>
+          </Pressable>
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.rowScroll}>
@@ -415,6 +418,17 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: '#5A361A',
+  },
+  aiButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#EFE3D6',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+  },
+  aiButtonText: {
+    color: '#5A361A',
+    fontWeight: '700',
   },
   section: {
     gap: 12,

@@ -32,7 +32,8 @@
     "extra": {
       "supabaseUrl": "https://eetwriityxryhchvtzcw.supabase.co",
       "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVldHdyaWl0eXhyeWhjaHZ0emN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MTM3NzksImV4cCI6MjA4NjQ4OTc3OX0.rXJE2Y8ga_qPcxtqxpgC7qJJTb1AmeBmGlmrKNumCME",
-      "supabaseImagesBucket": "images"
+      "supabaseImagesBucket": "images",
+      "styleAiFunctionName": "style-ai"
     }
   }
 }
