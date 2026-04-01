@@ -7,13 +7,13 @@ import {
   Image,
   Pressable,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useSession } from '../../lib/session';
 import { AmbientBackground } from '../../lib/ambient-background';
@@ -262,6 +262,7 @@ export default function WardrobeScreen() {
             <View style={viewMode === 'catalog' ? styles.catalogMedia : styles.listMedia}>
               {item.imageUrl ? (
                 <Image
+                  resizeMode="contain"
                   source={{ uri: item.imageUrl }}
                   style={viewMode === 'catalog' ? styles.itemImage : styles.listImage}
                 />
@@ -846,38 +847,42 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     paddingRight: 18,
   },
   catalogMedia: {
+    alignItems: 'center',
+    aspectRatio: 1,
+    backgroundColor: colors.overlay,
+    justifyContent: 'center',
+    padding: 16,
     width: '100%',
   },
   listMedia: {
+    alignItems: 'center',
+    backgroundColor: colors.overlay,
+    justifyContent: 'center',
     padding: 12,
-    width: 136,
+    width: 156,
   },
   itemImage: {
-    backgroundColor: colors.overlay,
-    height: 180,
+    height: '100%',
     width: '100%',
   },
   listImage: {
-    backgroundColor: colors.overlay,
     borderRadius: 14,
     height: '100%',
-    minHeight: 128,
+    minHeight: 132,
     width: '100%',
   },
   imageFallback: {
     alignItems: 'center',
-    backgroundColor: colors.overlay,
-    height: 180,
+    height: '100%',
     justifyContent: 'center',
     width: '100%',
   },
   listImageFallback: {
     alignItems: 'center',
-    backgroundColor: colors.overlay,
     borderRadius: 14,
     height: '100%',
     justifyContent: 'center',
-    minHeight: 128,
+    minHeight: 132,
     width: '100%',
   },
   imageFallbackText: {

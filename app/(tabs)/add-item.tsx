@@ -1,5 +1,3 @@
-import * as DocumentPicker from 'expo-document-picker';
-import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -9,13 +7,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useSession } from '../../lib/session';
 import { AmbientBackground } from '../../lib/ambient-background';
@@ -115,6 +113,7 @@ export default function AddItemScreen() {
   };
 
   const handlePickFromLibrary = async () => {
+    const ImagePicker = await import('expo-image-picker');
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
@@ -137,6 +136,7 @@ export default function AddItemScreen() {
   };
 
   const handlePickFromFiles = async () => {
+    const DocumentPicker = await import('expo-document-picker');
     const result = await DocumentPicker.getDocumentAsync({
       copyToCacheDirectory: true,
       multiple: false,
@@ -151,6 +151,7 @@ export default function AddItemScreen() {
   };
 
   const handleUseCamera = async () => {
+    const ImagePicker = await import('expo-image-picker');
     const permission = await ImagePicker.requestCameraPermissionsAsync();
 
     if (!permission.granted) {

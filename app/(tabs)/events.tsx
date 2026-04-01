@@ -5,12 +5,12 @@ import {
   Image,
   Pressable,
   RefreshControl,
-  SafeAreaView,
   SectionList,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { fetchEvents, type EventSummary } from '../../lib/events';
 import { AmbientBackground } from '../../lib/ambient-background';
