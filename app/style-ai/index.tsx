@@ -79,6 +79,17 @@ function buildSuggestionPreview(
     .filter((item): item is NonNullable<typeof item> => item != null);
 }
 
+function findSuggestionSourceOutfit(
+  suggestion: AIStylingResult['suggestions'][number],
+  context: AIContextBundle | null
+) {
+  if (!context || !suggestion.sourceOutfitId) {
+    return null;
+  }
+
+  return context.outfits.find((outfit) => outfit.id === suggestion.sourceOutfitId) ?? null;
+}
+
 export default function StyleAIScreen() {
   const { user } = useSession();
   const { colors } = useTheme();
@@ -461,6 +472,28 @@ export default function StyleAIScreen() {
                             </View>
                           ))}
                         </ScrollView>
+                      ) : findSuggestionSourceOutfit(suggestion, result.context) ? (
+                        <View style={styles.savedLookPreview}>
+                          {findSuggestionSourceOutfit(suggestion, result.context)?.imageUrl ? (
+                            <Image
+                              resizeMode="contain"
+                              source={{ uri: findSuggestionSourceOutfit(suggestion, result.context)?.imageUrl ?? '' }}
+                              style={styles.savedLookImage}
+                            />
+                          ) : (
+                            <View style={styles.savedLookFallback}>
+                              <Text style={styles.savedLookFallbackText}>Saved look preview</Text>
+                            </View>
+                          )}
+                          <View style={styles.savedLookCopy}>
+                            <Text style={styles.savedLookTitle}>
+                              {findSuggestionSourceOutfit(suggestion, result.context)?.name}
+                            </Text>
+                            <Text style={styles.savedLookMeta}>
+                              {findSuggestionSourceOutfit(suggestion, result.context)?.itemCount ?? 0} items · Existing saved outfit
+                            </Text>
+                          </View>
+                        </View>
                       ) : null}
                       <Text style={styles.resultBody}>{suggestion.rationale}</Text>
                       <Text style={styles.confidenceText}>
@@ -811,6 +844,45 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
   previewMeta: {
     color: colors.textMuted,
     fontSize: 12,
+  },
+  savedLookPreview: {
+    backgroundColor: colors.surfaceStrong,
+    borderColor: colors.border,
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 10,
+    overflow: 'hidden',
+  },
+  savedLookImage: {
+    backgroundColor: colors.overlay,
+    height: 160,
+    width: '100%',
+  },
+  savedLookFallback: {
+    alignItems: 'center',
+    backgroundColor: colors.overlay,
+    height: 160,
+    justifyContent: 'center',
+    width: '100%',
+  },
+  savedLookFallbackText: {
+    color: colors.textSubtle,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  savedLookCopy: {
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+  },
+  savedLookTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  savedLookMeta: {
+    color: colors.textMuted,
+    fontSize: 13,
   },
   resultBody: {
     color: colors.textMuted,

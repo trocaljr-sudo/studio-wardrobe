@@ -59,12 +59,25 @@ export type AIContextBundle = {
 };
 
 function createFallbackSuggestions(
+  builtLooks: BuiltLookSuggestion[],
   recommendations: RecommendedOutfit[],
   outfitDetails: OutfitDetail[],
   items: ClothingItem[],
   prompt: string
 ) {
   const detailMap = new Map(outfitDetails.map((outfit) => [outfit.id, outfit]));
+
+  if (builtLooks.slice(0, 3).length > 0) {
+    return builtLooks.slice(0, 3).map((suggestion) => ({
+      confidenceScore: Math.max(64, Math.min(90, Math.round(suggestion.score * 100))),
+      confidenceLabel: 'grounded',
+      itemIds: suggestion.items.map((item) => item.id),
+      itemNames: suggestion.items.map((item) => item.name),
+      label: suggestion.title,
+      rationale: suggestion.reasons.join('. '),
+      sourceOutfitId: null,
+    }));
+  }
 
   return recommendations.slice(0, 3).length > 0
     ? recommendations.slice(0, 3).map((recommendation) => ({
@@ -214,6 +227,7 @@ export async function requestAIStyling(
       suggestions:
         request.focus === 'outfit-suggestions'
           ? createFallbackSuggestions(
+              context.builtLooks,
               context.recommendedOutfits,
               context.outfitDetails,
               context.items,
