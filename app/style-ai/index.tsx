@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -54,6 +55,28 @@ function getConfidenceTier(score: number) {
   }
 
   return 'Could work';
+}
+
+function buildSuggestionPreview(
+  suggestion: AIStylingResult['suggestions'][number],
+  context: AIContextBundle | null
+) {
+  if (!context) {
+    return [];
+  }
+
+  const sourceOutfit = suggestion.sourceOutfitId
+    ? context.outfitDetails.find((outfit) => outfit.id === suggestion.sourceOutfitId)
+    : null;
+
+  if (sourceOutfit) {
+    return sourceOutfit.items;
+  }
+
+  const itemMap = new Map(context.items.map((item) => [item.id, item]));
+  return suggestion.itemIds
+    .map((itemId) => itemMap.get(itemId) ?? null)
+    .filter((item): item is NonNullable<typeof item> => item != null);
 }
 
 export default function StyleAIScreen() {
@@ -408,6 +431,37 @@ export default function StyleAIScreen() {
                           ? suggestion.itemNames.join(' · ')
                           : 'Grounded in one of your saved outfits'}
                       </Text>
+                      {buildSuggestionPreview(suggestion, result.context).length > 0 ? (
+                        <ScrollView
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          contentContainerStyle={styles.previewRow}
+                        >
+                          {buildSuggestionPreview(suggestion, result.context).map((item) => (
+                            <View key={`${suggestion.label}-${item.id}`} style={styles.previewCard}>
+                              <View style={styles.previewImageFrame}>
+                                {item.imageUrl ? (
+                                  <Image
+                                    resizeMode="contain"
+                                    source={{ uri: item.imageUrl }}
+                                    style={styles.previewImage}
+                                  />
+                                ) : (
+                                  <View style={styles.previewFallback}>
+                                    <Text style={styles.previewFallbackText}>No image</Text>
+                                  </View>
+                                )}
+                              </View>
+                              <Text numberOfLines={1} style={styles.previewName}>
+                                {item.name}
+                              </Text>
+                              <Text numberOfLines={1} style={styles.previewMeta}>
+                                {item.categoryName ?? item.color ?? 'Wardrobe piece'}
+                              </Text>
+                            </View>
+                          ))}
+                        </ScrollView>
+                      ) : null}
                       <Text style={styles.resultBody}>{suggestion.rationale}</Text>
                       <Text style={styles.confidenceText}>
                         {suggestion.confidenceLabel === 'grounded'
@@ -715,6 +769,48 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
   resultMeta: {
     color: colors.textMuted,
     lineHeight: 20,
+  },
+  previewRow: {
+    gap: 10,
+    paddingVertical: 4,
+  },
+  previewCard: {
+    width: 116,
+    gap: 6,
+  },
+  previewImageFrame: {
+    alignItems: 'center',
+    backgroundColor: colors.overlay,
+    borderColor: colors.border,
+    borderRadius: 16,
+    borderWidth: 1,
+    height: 108,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    padding: 10,
+    width: 116,
+  },
+  previewImage: {
+    height: '100%',
+    width: '100%',
+  },
+  previewFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewFallbackText: {
+    color: colors.textSubtle,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  previewName: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  previewMeta: {
+    color: colors.textMuted,
+    fontSize: 12,
   },
   resultBody: {
     color: colors.textMuted,
