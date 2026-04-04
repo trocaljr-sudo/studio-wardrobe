@@ -73,6 +73,7 @@ Deno.serve(async (request) => {
                 itemIds: { type: 'array', items: { type: 'string' } },
                 itemNames: { type: 'array', items: { type: 'string' } },
                 rationale: { type: 'string' },
+                confidenceScore: { type: 'number' },
                 confidenceLabel: {
                   type: 'string',
                   enum: ['grounded', 'exploratory'],
@@ -86,6 +87,7 @@ Deno.serve(async (request) => {
                 'itemIds',
                 'itemNames',
                 'rationale',
+                'confidenceScore',
                 'confidenceLabel',
                 'sourceOutfitId',
               ],

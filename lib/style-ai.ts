@@ -24,6 +24,7 @@ import {
 } from './style-ai-prompt';
 
 export type AIStyleSuggestion = {
+  confidenceScore: number;
   confidenceLabel: 'grounded' | 'exploratory';
   itemIds: string[];
   itemNames: string[];
@@ -67,6 +68,7 @@ function createFallbackSuggestions(
 
   return recommendations.slice(0, 3).length > 0
     ? recommendations.slice(0, 3).map((recommendation) => ({
+        confidenceScore: Math.max(62, Math.min(96, Math.round(recommendation.score * 100))),
         confidenceLabel: 'grounded',
         itemIds: detailMap.get(recommendation.outfit.id)?.items.map((item) => item.id) ?? [],
         itemNames: detailMap.get(recommendation.outfit.id)?.items.map((item) => item.name) ?? [],
@@ -76,6 +78,7 @@ function createFallbackSuggestions(
       }))
     : [
         {
+          confidenceScore: 58,
           confidenceLabel: 'grounded',
           itemIds: [],
           itemNames: items.slice(0, 3).map((item) => item.name),
@@ -192,6 +195,7 @@ export async function requestAIStyling(
       ...result,
       suggestions: (result.suggestions ?? []).map((suggestion) => ({
         ...suggestion,
+        confidenceScore: Math.max(55, Math.min(98, Math.round(suggestion.confidenceScore ?? 72))),
         itemIds: (suggestion.itemIds ?? []).filter((itemId) => allowedItemIds.has(itemId)),
         sourceOutfitId:
           suggestion.sourceOutfitId && sourceOutfitIds.has(suggestion.sourceOutfitId)

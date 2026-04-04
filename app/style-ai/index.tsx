@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AmbientBackground } from '../../lib/ambient-background';
+import { updateEvent } from '../../lib/events';
 import { type StylePreset } from '../../lib/style-ai-prompt';
 import { recordFeedback } from '../../lib/personalization';
 import {
@@ -27,16 +28,33 @@ import { useTheme } from '../../lib/theme';
 
 const PRESETS: { id: StylePreset; label: string; prompt: string }[] = [
   { id: 'casual', label: 'Casual', prompt: 'Give me a casual look from my wardrobe.' },
-  { id: 'business', label: 'Business', prompt: 'Build a polished business outfit from my wardrobe.' },
-  { id: 'formal', label: 'Formal', prompt: 'Suggest a formal outfit from my wardrobe.' },
-  { id: 'streetwear', label: 'Streetwear', prompt: 'Create a streetwear-inspired look from my wardrobe.' },
-  { id: 'minimal', label: 'Minimal', prompt: 'Build a clean minimal outfit from my wardrobe.' },
   { id: 'date-night', label: 'Date Night', prompt: 'Give me a date-night look from my wardrobe.' },
+  { id: 'business', label: 'Business', prompt: 'Build a polished business outfit from my wardrobe.' },
   { id: 'gym', label: 'Gym', prompt: 'Suggest a gym-ready outfit from my wardrobe.' },
-  { id: 'vacation', label: 'Vacation', prompt: 'Build an easy vacation outfit from my wardrobe.' },
-  { id: 'monochrome', label: 'Monochrome', prompt: 'Build a monochrome outfit from my wardrobe.' },
-  { id: 'bold', label: 'Bold', prompt: 'Give me a bold statement outfit from my wardrobe.' },
+  { id: 'travel', label: 'Travel', prompt: 'Build a comfortable travel outfit from my wardrobe.' },
 ];
+
+const GAP_PROMPTS = [
+  'What am I missing for everyday outfits?',
+  'What would improve my wardrobe for business looks?',
+  'What gaps do you see for travel and layering?',
+];
+
+function getConfidenceTier(score: number) {
+  if (score >= 90) {
+    return 'Strong fit';
+  }
+
+  if (score >= 78) {
+    return 'High confidence';
+  }
+
+  if (score >= 66) {
+    return 'Promising option';
+  }
+
+  return 'Could work';
+}
 
 export default function StyleAIScreen() {
   const { user } = useSession();
@@ -50,6 +68,7 @@ export default function StyleAIScreen() {
   const [result, setResult] = useState<(AIStylingResult & { context: AIContextBundle }) | null>(null);
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [assigningId, setAssigningId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -68,13 +87,19 @@ export default function StyleAIScreen() {
     [selectedPreset]
   );
 
-  const handleRun = async () => {
+  const runStyling = async (nextPromptOverride?: string) => {
     if (!user) {
       setErrorMessage('Sign in again before using Style AI.');
       return;
     }
 
-    const nextPrompt = prompt.trim() || activePreset?.prompt || 'Give me a strong outfit idea from my wardrobe.';
+    const nextPrompt =
+      nextPromptOverride?.trim() ||
+      prompt.trim() ||
+      activePreset?.prompt ||
+      (focus === 'gap-analysis'
+        ? 'What am I missing from my wardrobe right now?'
+        : 'Give me 3 strong outfit ideas from my wardrobe.');
 
     setLoading(true);
     setErrorMessage(null);
@@ -96,6 +121,14 @@ export default function StyleAIScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRun = async () => {
+    await runStyling();
+  };
+
+  const handleRegenerate = async () => {
+    await runStyling(prompt);
   };
 
   const handleSaveSuggestion = async (suggestion: AIStylingResult['suggestions'][number]) => {
@@ -161,6 +194,68 @@ export default function StyleAIScreen() {
     }
   };
 
+  const handleAssignSuggestion = async (suggestion: AIStylingResult['suggestions'][number]) => {
+    if (!user || !result) {
+      return;
+    }
+
+    const targetEvent =
+      result.context.event ??
+      result.context.upcomingEvents.find((event) => !event.isPast) ??
+      null;
+
+    if (!targetEvent) {
+      setErrorMessage('Create an event first, then you can assign AI looks to it.');
+      return;
+    }
+
+    setAssigningId(suggestion.label);
+    setErrorMessage(null);
+
+    try {
+      let outfitId = suggestion.sourceOutfitId ?? null;
+
+      if (!outfitId) {
+        const savedOutfit = await saveAIStyleSuggestionAsOutfit({
+          ownerId: user.id,
+          label: suggestion.label,
+          description: suggestion.rationale,
+          itemIds: suggestion.itemIds,
+          occasionId: targetEvent.occasion?.id ?? null,
+        });
+        outfitId = savedOutfit.id;
+      }
+
+      await updateEvent({
+        eventId: targetEvent.id,
+        title: targetEvent.title,
+        scheduledDate: targetEvent.scheduledDate ?? new Date().toISOString().slice(0, 10),
+        scheduledTime: targetEvent.scheduledTime ?? '',
+        notes: targetEvent.notes ?? '',
+        occasionId: targetEvent.occasion?.id ?? null,
+        outfitId,
+        userId: user.id,
+      });
+
+      await recordFeedback({
+        userId: user.id,
+        targetType: suggestion.sourceOutfitId ? 'outfit' : 'suggestion',
+        targetId: suggestion.sourceOutfitId ?? null,
+        itemIds: suggestion.itemIds,
+        signal: 'like',
+        source: 'ai',
+      });
+
+      router.push(`/events/${targetEvent.id}`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to assign that AI suggestion right now.';
+      setErrorMessage(message);
+    } finally {
+      setAssigningId(null);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <AmbientBackground />
@@ -175,7 +270,7 @@ export default function StyleAIScreen() {
 
           <Text style={styles.title}>Style AI</Text>
           <Text style={styles.body}>
-            Ask for grounded outfit ideas or a wardrobe gap check. The AI only works from your own wardrobe context, with rule-based fallback if it misses.
+            Start with a styling mode, then let Studio Wardrobe turn your real closet into ready-to-wear looks and smarter buying advice.
           </Text>
 
           <View style={styles.segmentRow}>
@@ -199,52 +294,84 @@ export default function StyleAIScreen() {
             </Pressable>
           </View>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.presetRow}>
-              {PRESETS.map((preset) => (
-                <Pressable
-                  key={preset.id}
-                  onPress={() => {
-                    setSelectedPreset(preset.id);
-                    if (!prompt.trim()) {
-                      setPrompt(preset.prompt);
-                    }
-                  }}
-                  style={[styles.presetChip, selectedPreset === preset.id && styles.presetChipActive]}
-                >
-                  <Text
-                    style={[
-                      styles.presetChipText,
-                      selectedPreset === preset.id && styles.presetChipTextActive,
-                    ]}
+          <View style={styles.promptCard}>
+            <Text style={styles.cardLabel}>
+              {focus === 'outfit-suggestions' ? 'Choose a styling direction' : 'Ask what is missing'}
+            </Text>
+            {focus === 'outfit-suggestions' ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.presetRow}>
+                  {PRESETS.map((preset) => (
+                    <Pressable
+                      key={preset.id}
+                      onPress={() => {
+                        setSelectedPreset(preset.id);
+                        setPrompt(preset.prompt);
+                      }}
+                      style={[styles.presetChip, selectedPreset === preset.id && styles.presetChipActive]}
+                    >
+                      <Text
+                        style={[
+                          styles.presetChipText,
+                          selectedPreset === preset.id && styles.presetChipTextActive,
+                        ]}
+                      >
+                        {preset.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </ScrollView>
+            ) : (
+              <View style={styles.gapPromptWrap}>
+                {GAP_PROMPTS.map((gapPrompt) => (
+                  <Pressable
+                    key={gapPrompt}
+                    onPress={() => setPrompt(gapPrompt)}
+                    style={styles.gapPromptChip}
                   >
-                    {preset.label}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Text style={styles.gapPromptText}>{gapPrompt}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+
+            <TextInput
+              multiline
+              onChangeText={setPrompt}
+              placeholder={
+                focus === 'outfit-suggestions'
+                  ? 'Optional: refine the vibe, color story, or occasion.'
+                  : 'Optional: ask about missing categories, layering, or seasonal gaps.'
+              }
+              placeholderTextColor={colors.placeholder}
+              style={styles.promptInput}
+              value={prompt}
+            />
+
+            <View style={styles.primaryActionRow}>
+              <Pressable
+                disabled={loading}
+                onPress={handleRun}
+                style={[styles.primaryButton, loading && styles.disabledButton]}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {loading
+                    ? 'Thinking...'
+                    : focus === 'outfit-suggestions'
+                      ? 'Generate 3 looks'
+                      : 'Analyze my closet'}
+                </Text>
+              </Pressable>
+              <Pressable
+                disabled={loading || (!prompt.trim() && !activePreset)}
+                onPress={handleRegenerate}
+                style={[styles.secondaryActionButton, (loading || (!prompt.trim() && !activePreset)) && styles.disabledButton]}
+              >
+                <Text style={styles.secondaryActionButtonText}>Regenerate</Text>
+              </Pressable>
             </View>
-          </ScrollView>
-
-          <TextInput
-            multiline
-            onChangeText={setPrompt}
-            placeholder={
-              focus === 'outfit-suggestions'
-                ? 'Ask for an outfit idea, like “Build a monochrome look for date night.”'
-                : 'Ask what would strengthen your wardrobe, like “What am I missing for summer business outfits?”'
-            }
-            placeholderTextColor={colors.placeholder}
-            style={styles.promptInput}
-            value={prompt}
-          />
-
-          <Pressable
-            disabled={loading}
-            onPress={handleRun}
-            style={[styles.primaryButton, loading && styles.disabledButton]}
-          >
-            <Text style={styles.primaryButtonText}>{loading ? 'Thinking...' : 'Run Style AI'}</Text>
-          </Pressable>
+          </View>
 
           {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
 
@@ -268,11 +395,18 @@ export default function StyleAIScreen() {
               {focus === 'outfit-suggestions'
                 ? result.suggestions.map((suggestion) => (
                     <View key={suggestion.label} style={styles.resultCard}>
-                      <Text style={styles.resultTitle}>{suggestion.label}</Text>
+                      <View style={styles.resultTitleRow}>
+                        <Text style={styles.resultTitle}>{suggestion.label}</Text>
+                        <View style={styles.confidencePill}>
+                          <Text style={styles.confidencePillText}>
+                            {suggestion.confidenceScore}% · {getConfidenceTier(suggestion.confidenceScore)}
+                          </Text>
+                        </View>
+                      </View>
                       <Text style={styles.resultMeta}>
                         {suggestion.itemNames.length > 0
-                          ? suggestion.itemNames.join(', ')
-                          : 'Based on a saved outfit already in your wardrobe'}
+                          ? suggestion.itemNames.join(' · ')
+                          : 'Grounded in one of your saved outfits'}
                       </Text>
                       <Text style={styles.resultBody}>{suggestion.rationale}</Text>
                       <Text style={styles.confidenceText}>
@@ -308,10 +442,30 @@ export default function StyleAIScreen() {
                             style={[styles.secondaryButton, savingId === suggestion.label && styles.disabledButton]}
                           >
                             <Text style={styles.secondaryButtonText}>
-                              {savingId === suggestion.label ? 'Saving...' : 'Save as outfit'}
+                              {savingId === suggestion.label ? 'Saving...' : 'Save'}
                             </Text>
                           </Pressable>
                         ) : null}
+                        <Pressable
+                          disabled={assigningId === suggestion.label}
+                          onPress={() => handleAssignSuggestion(suggestion)}
+                          style={[styles.secondaryButton, assigningId === suggestion.label && styles.disabledButton]}
+                        >
+                          <Text style={styles.secondaryButtonText}>
+                            {assigningId === suggestion.label
+                              ? 'Assigning...'
+                              : eventId
+                                ? 'Assign to event'
+                                : 'Assign to next event'}
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          disabled={loading}
+                          onPress={handleRegenerate}
+                          style={[styles.secondaryButton, loading && styles.disabledButton]}
+                        >
+                          <Text style={styles.secondaryButtonText}>Regenerate</Text>
+                        </Pressable>
                       </View>
                     </View>
                   ))
@@ -363,6 +517,20 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     color: colors.textMuted,
     lineHeight: 22,
   },
+  promptCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 16,
+    gap: 14,
+  },
+  cardLabel: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
   segmentRow: {
     flexDirection: 'row',
     gap: 10,
@@ -391,6 +559,11 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     flexDirection: 'row',
     gap: 10,
   },
+  gapPromptWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
   presetChip: {
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -410,8 +583,20 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
   presetChipTextActive: {
     color: colors.accent,
   },
+  gapPromptChip: {
+    backgroundColor: colors.surfaceStrong,
+    borderColor: colors.border,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  gapPromptText: {
+    color: colors.text,
+    fontWeight: '600',
+  },
   promptInput: {
-    minHeight: 120,
+    minHeight: 110,
     textAlignVertical: 'top',
     borderRadius: 18,
     borderWidth: 1,
@@ -422,16 +607,36 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     color: colors.text,
     fontSize: 16,
   },
+  primaryActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   primaryButton: {
     backgroundColor: colors.accent,
     borderRadius: 16,
     paddingVertical: 15,
+    paddingHorizontal: 18,
     alignItems: 'center',
+    flex: 1,
   },
   primaryButtonText: {
     color: colors.accentText,
     fontWeight: '700',
     fontSize: 16,
+  },
+  secondaryActionButton: {
+    alignItems: 'center',
+    backgroundColor: colors.surfaceStrong,
+    borderColor: colors.border,
+    borderRadius: 16,
+    borderWidth: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+  },
+  secondaryActionButtonText: {
+    color: colors.text,
+    fontWeight: '700',
   },
   disabledButton: {
     opacity: 0.7,
@@ -483,10 +688,29 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     padding: 16,
     gap: 8,
   },
+  resultTitleRow: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    justifyContent: 'space-between',
+  },
   resultTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: colors.text,
+    flexShrink: 1,
+  },
+  confidencePill: {
+    backgroundColor: colors.accentMuted,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  confidencePillText: {
+    color: colors.accent,
+    fontSize: 12,
+    fontWeight: '800',
   },
   resultMeta: {
     color: colors.textMuted,

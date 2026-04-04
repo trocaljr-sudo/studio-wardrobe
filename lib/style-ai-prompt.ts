@@ -6,14 +6,9 @@ import type { ClothingItem } from './wardrobe';
 export type StylePreset =
   | 'casual'
   | 'business'
-  | 'formal'
-  | 'streetwear'
-  | 'minimal'
   | 'date-night'
   | 'gym'
-  | 'vacation'
-  | 'monochrome'
-  | 'bold';
+  | 'travel';
 
 export type AIContextPayload = {
   builtLooks: {
@@ -152,8 +147,11 @@ export function buildStyleAIInstructions(input: {
     'You must only suggest clothing item IDs that appear in the provided wardrobe context.',
     'Never invent items, colors, brands, or outfits that are not in the provided data.',
     'Use the rule-based recommendations as grounding, not as a hard ceiling.',
-    'Return concise, stylish, practical suggestions.',
+    'Return concise, stylish, practical suggestions that feel productized rather than chatty.',
     'Each outfit suggestion needs a clear rationale tied to real owned pieces.',
+    'Each outfit suggestion must include a confidence score from 55 to 98 based on how well it matches the prompt, occasion, and wardrobe composition.',
+    'Favor 2 to 3 high-quality outfit options over too many weak ones.',
+    'For outfit suggestions, prefer complete looks with balanced categories when possible.',
     'For gap analysis, recommend category-level or item-type-level additions only.',
     presetLine,
     eventLine,
