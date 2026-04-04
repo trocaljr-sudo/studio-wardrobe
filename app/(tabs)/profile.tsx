@@ -15,7 +15,7 @@ import { AmbientBackground } from '../../lib/ambient-background';
 import { fetchEvents } from '../../lib/events';
 import { fetchOutfits } from '../../lib/outfits';
 import { fetchAppSettings, fetchAppStorageDebug, updateAppSettings, type AppSettings, type AppStorageDebug } from '../../lib/app-settings';
-import { fetchPersonalizationSnapshot } from '../../lib/personalization';
+import { fetchPersonalizationSnapshot, updateStyleProfilePreferences, type DerivedStyleProfile, type StyleVibe } from '../../lib/personalization';
 import { fetchRecommendations } from '../../lib/recommendations';
 import { useSession } from '../../lib/session';
 import { supabase } from '../../lib/supabase';
@@ -86,6 +86,7 @@ export default function ProfileScreen() {
     dislikedOutfitCount: 0,
   });
   const [styleSummaryLines, setStyleSummaryLines] = useState<string[]>([]);
+  const [styleProfile, setStyleProfile] = useState<DerivedStyleProfile | null>(null);
   const [displayName, setDisplayName] = useState(user?.user_metadata?.full_name ?? '');
   const [appSettings, setAppSettings] = useState<AppSettings>({
     analyticsEnabled: true,
@@ -137,6 +138,7 @@ export default function ProfileScreen() {
             dislikedOutfitCount: countSignals(personalization.outfitFeedback, 'dislike'),
           });
           setStyleSummaryLines(recommendations.styleProfile.summaryLines.slice(0, 3));
+          setStyleProfile(recommendations.styleProfile);
           setAppSettings(nextAppSettings);
           setStorageDebug(nextStorageDebug);
           setDisplayName(user.user_metadata?.full_name ?? '');
@@ -231,6 +233,23 @@ export default function ProfileScreen() {
     }
   };
 
+  const handlePreferredVibeChange = async (preferredVibe: StyleVibe | null) => {
+    if (!user) {
+      return;
+    }
+
+    setErrorMessage(null);
+
+    try {
+      await updateStyleProfilePreferences(user.id, { preferredVibe });
+      const recommendations = await fetchRecommendations(user.id);
+      setStyleProfile(recommendations.styleProfile);
+      setStyleSummaryLines(recommendations.styleProfile.summaryLines.slice(0, 3));
+    } catch {
+      setErrorMessage('Unable to update your style direction right now.');
+    }
+  };
+
   const accountRows = useMemo(
     () => [
       { label: 'Email', value: user?.email ?? 'Not available' },
@@ -310,6 +329,29 @@ export default function ProfileScreen() {
           <Text style={styles.helperText}>
             Favorites and feedback help the recommendation engine understand what feels like you.
           </Text>
+          <Text style={styles.settingLabel}>Style direction</Text>
+          <View style={styles.vibeRow}>
+            {([
+              { id: null, label: 'Auto' },
+              { id: 'casual', label: 'Casual' },
+              { id: 'streetwear', label: 'Streetwear' },
+              { id: 'business', label: 'Business' },
+            ] as { id: StyleVibe | null; label: string }[]).map((entry) => {
+              const selected = (styleProfile?.preferredVibe ?? null) === entry.id;
+
+              return (
+                <Pressable
+                  key={entry.label}
+                  onPress={() => handlePreferredVibeChange(entry.id)}
+                  style={[styles.vibeChip, selected && styles.vibeChipActive]}
+                >
+                  <Text style={[styles.vibeChipText, selected && styles.vibeChipTextActive]}>
+                    {entry.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
           <View style={styles.preferenceRow}>
             <View style={styles.preferenceChip}>
               <Text style={styles.preferenceValue}>{stats.favoriteItemCount}</Text>
@@ -338,6 +380,32 @@ export default function ProfileScreen() {
                 </Text>
               ))}
             </View>
+          ) : null}
+          {styleProfile ? (
+            <>
+              <View style={styles.styleMiniSection}>
+                <Text style={styles.settingLabel}>Most-worn colors</Text>
+                <View style={styles.vibeRow}>
+                  {(styleProfile.preferredColors.length > 0 ? styleProfile.preferredColors : ['Still learning']).map((value) => (
+                    <View key={value} style={styles.statPill}>
+                      <Text style={styles.statPillText}>{value}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+              <View style={styles.styleMiniSection}>
+                <Text style={styles.settingLabel}>Favorite categories</Text>
+                <View style={styles.vibeRow}>
+                  {(styleProfile.preferredCategoryNames.length > 0
+                    ? styleProfile.preferredCategoryNames
+                    : ['Still learning']).map((value) => (
+                    <View key={value} style={styles.statPill}>
+                      <Text style={styles.statPillText}>{value}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </>
           ) : null}
         </View>
 
@@ -610,6 +678,31 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
       fontSize: 13,
       fontWeight: '600',
     },
+    vibeRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+    },
+    vibeChip: {
+      backgroundColor: colors.surfaceMuted,
+      borderColor: colors.border,
+      borderRadius: 999,
+      borderWidth: 1,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+    },
+    vibeChipActive: {
+      backgroundColor: colors.accent,
+      borderColor: colors.accent,
+    },
+    vibeChipText: {
+      color: colors.textMuted,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    vibeChipTextActive: {
+      color: colors.accentText,
+    },
     summaryBox: {
       backgroundColor: colors.surfaceMuted,
       borderColor: colors.border,
@@ -621,6 +714,23 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     summaryText: {
       color: colors.textMuted,
       lineHeight: 20,
+    },
+    styleMiniSection: {
+      gap: 10,
+      marginTop: 4,
+    },
+    statPill: {
+      backgroundColor: colors.overlay,
+      borderColor: colors.border,
+      borderRadius: 999,
+      borderWidth: 1,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    statPillText: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '600',
     },
     themeRow: {
       gap: 10,

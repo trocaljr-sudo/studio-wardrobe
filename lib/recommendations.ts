@@ -284,6 +284,36 @@ function outfitHasMatchingKeywords(outfit: DetailedOutfitRecommendation, keyword
   return keywords.some((keyword) => haystack.includes(keyword));
 }
 
+function outfitMatchesPreferredVibe(
+  outfit: DetailedOutfitRecommendation,
+  preferredVibe: DerivedStyleProfile['preferredVibe']
+) {
+  if (!preferredVibe) {
+    return false;
+  }
+
+  const haystack = [
+    outfit.outfit.name,
+    outfit.outfit.description ?? '',
+    ...outfit.occasionNames,
+    ...outfit.tagNames,
+    ...outfit.items.map((item) => item.name),
+    ...outfit.items.map((item) => item.categoryName ?? ''),
+  ]
+    .join(' ')
+    .toLowerCase();
+
+  if (preferredVibe === 'business') {
+    return /business|office|work|polish|blazer|loafer|trouser|button|shirt|meeting/.test(haystack);
+  }
+
+  if (preferredVibe === 'streetwear') {
+    return /streetwear|hoodie|graphic|sneaker|cargo|oversized|jogger|cap|tee/.test(haystack);
+  }
+
+  return /casual|weekend|everyday|denim|tee|sweater|sneaker|hoodie|travel/.test(haystack);
+}
+
 function computeOutfitRecommendation(params: {
   event?: EventSummary | null;
   outfit: DetailedOutfitRecommendation;
@@ -324,6 +354,12 @@ function computeOutfitRecommendation(params: {
   if (feedbackSignal === 'dislike') {
     styleAlignment -= 18;
     reasons.push('You previously marked this look as a weaker fit');
+    personalReasonCount += 1;
+  }
+
+  if (outfitMatchesPreferredVibe(outfit, profile.preferredVibe)) {
+    styleAlignment += 12;
+    reasons.push(`Feels aligned with your ${profile.preferredVibe} style direction`);
     personalReasonCount += 1;
   }
 

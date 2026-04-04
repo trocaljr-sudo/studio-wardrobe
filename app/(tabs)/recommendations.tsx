@@ -627,8 +627,26 @@ export default function RecommendationsScreen() {
               <>
                 <Text style={styles.sectionTitle}>Based on your style</Text>
                 <Text style={styles.sectionBody}>
-                  {state.styleProfile.summaryLines[0] ?? 'These are the looks that best match what you keep favoriting and liking.'}
+                  {state.styleProfile.summaryLines[0] ??
+                    'This feed is tuned to your favorites, likes, most-used colors, and preferred silhouettes.'}
                 </Text>
+                <View style={styles.profileChipWrap}>
+                  {state.styleProfile.preferredVibe ? (
+                    <View style={styles.profileChip}>
+                      <Text style={styles.profileChipText}>Vibe · {state.styleProfile.preferredVibe}</Text>
+                    </View>
+                  ) : null}
+                  {state.styleProfile.preferredColors.slice(0, 3).map((color) => (
+                    <View key={color} style={styles.profileChip}>
+                      <Text style={styles.profileChipText}>Color · {color}</Text>
+                    </View>
+                  ))}
+                  {state.styleProfile.preferredCategoryNames.slice(0, 2).map((category) => (
+                    <View key={category} style={styles.profileChip}>
+                      <Text style={styles.profileChipText}>Category · {category}</Text>
+                    </View>
+                  ))}
+                </View>
                 {state.personalizedOutfits.map(renderOutfitCard)}
               </>
             ) : null}
@@ -847,6 +865,24 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
   sectionBody: {
     color: colors.textMuted,
     lineHeight: 21,
+  },
+  profileChipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  profileChip: {
+    backgroundColor: colors.surfaceStrong,
+    borderColor: colors.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  profileChipText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '700',
   },
   card: {
     borderRadius: 22,

@@ -6,6 +6,7 @@ import type { ClothingItem } from './wardrobe';
 export type FeedbackSignal = 'like' | 'dislike';
 export type FeedbackSource = 'ai' | 'rules' | 'manual';
 export type FeedbackTargetType = 'outfit' | 'item' | 'suggestion';
+export type StyleVibe = 'casual' | 'streetwear' | 'business';
 
 type ProfileRow = {
   favorite_brands: string[] | null;
@@ -27,6 +28,7 @@ export type StoredStyleProfile = {
   favoriteItemIds: string[];
   favoriteOutfitIds: string[];
   feedback: StoredFeedbackEntry[];
+  preferredVibe: StyleVibe | null;
   version: number;
 };
 
@@ -43,6 +45,7 @@ export type DerivedStyleProfile = PersonalizationSnapshot & {
   preferredCategoryNames: string[];
   preferredColors: string[];
   preferredOccasionNames: string[];
+  preferredVibe: StyleVibe | null;
   recentlyLikedOutfitIds: string[];
   summaryLines: string[];
 };
@@ -52,6 +55,7 @@ const EMPTY_PROFILE: StoredStyleProfile = {
   favoriteItemIds: [],
   favoriteOutfitIds: [],
   feedback: [],
+  preferredVibe: null,
 };
 
 function unique<T>(values: T[]) {
@@ -119,6 +123,12 @@ function normalizeStoredStyleProfile(value: unknown): StoredStyleProfile {
           .map((entry) => normalizeFeedbackEntry(entry))
           .filter(Boolean) as StoredFeedbackEntry[]
       : [],
+    preferredVibe:
+      candidate.preferredVibe === 'casual' ||
+      candidate.preferredVibe === 'streetwear' ||
+      candidate.preferredVibe === 'business'
+        ? candidate.preferredVibe
+        : null,
   };
 }
 
@@ -321,6 +331,9 @@ export function deriveUserStyleProfile(input: {
   const preferredOccasionNames = topKeys(occasionScores);
 
   const summaryLines = [
+    input.storedProfile.preferredVibe
+      ? `You want recommendations to lean ${input.storedProfile.preferredVibe}.`
+      : null,
     preferredColors.length > 0
       ? `You keep returning to ${preferredColors.join(', ')} tones.`
       : null,
@@ -344,6 +357,7 @@ export function deriveUserStyleProfile(input: {
     preferredCategoryNames,
     favoriteBrands,
     preferredOccasionNames,
+    preferredVibe: input.storedProfile.preferredVibe,
     recentlyLikedOutfitIds,
     goToOutfitIds,
     summaryLines:
@@ -429,6 +443,20 @@ export async function toggleFavoriteOutfit(userId: string, outfitId: string) {
     ...stored,
     favoriteOutfitIds: nextFavoriteOutfitIds,
   } as StoredStyleProfile;
+
+  await writeStoredStyleProfile(userId, nextProfile);
+  return nextProfile;
+}
+
+export async function updateStyleProfilePreferences(
+  userId: string,
+  input: { preferredVibe: StyleVibe | null }
+) {
+  const stored = await fetchStoredStyleProfile(userId);
+  const nextProfile: StoredStyleProfile = {
+    ...stored,
+    preferredVibe: input.preferredVibe,
+  };
 
   await writeStoredStyleProfile(userId, nextProfile);
   return nextProfile;
