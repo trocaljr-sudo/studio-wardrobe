@@ -138,9 +138,12 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
       flex: 1,
     },
     content: {
+      alignSelf: 'center',
       flex: 1,
       justifyContent: 'center',
+      maxWidth: 520,
       paddingHorizontal: 24,
+      width: '100%',
       gap: 18,
     },
     eyebrow: {

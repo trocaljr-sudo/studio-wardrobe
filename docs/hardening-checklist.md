@@ -13,6 +13,7 @@
 - [x] Guard native-only picker imports so the web bundle can load cleanly
 - [x] Add a cross-platform image source picker sheet for Add Item instead of platform-fragile fallback alerts
 - [x] Keep iOS native action-sheet behavior where it already feels right
+- [x] Constrain major screens to more product-like widths on web instead of stretching edge to edge
 
 ## Intelligence and history depth
 
@@ -23,6 +24,7 @@
 - [x] Tune builder-assistant suggestions with selected occasions and tags
 - [x] Surface a compact "What should I wear today" preview on the wardrobe home surface
 - [x] Strengthen closet insights and usage signals from saved outfits and events
+- [x] Add a real wear-log foundation plus mark-as-worn actions for outfits and event looks
 
 ## Settings and profile depth
 
@@ -31,6 +33,7 @@
 - [x] Add style-profile summary and learning signals
 - [x] Add quick navigation links back into the main app areas
 - [x] Keep appearance controls for system, light, and dark modes
+- [x] Add deeper account/settings controls for profile name, local reminders/privacy toggles, and storage/debug status
 
 ## Navigation and flow cleanup
 
@@ -38,6 +41,7 @@
 - [x] Refresh core list screens on return from create/edit flows
 - [x] Keep bottom navigation focused on the core destinations
 - [x] Move add-item entry into the wardrobe home experience
+- [x] Make stack routes more explicit so hidden-tab and detail flows stay predictable as the app grows
 
 ## Verification
 

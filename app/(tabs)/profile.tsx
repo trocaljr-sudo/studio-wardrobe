@@ -5,6 +5,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  TextInput,
   Text,
   View,
 } from 'react-native';
@@ -13,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AmbientBackground } from '../../lib/ambient-background';
 import { fetchEvents } from '../../lib/events';
 import { fetchOutfits } from '../../lib/outfits';
+import { fetchAppSettings, fetchAppStorageDebug, updateAppSettings, type AppSettings, type AppStorageDebug } from '../../lib/app-settings';
 import { fetchPersonalizationSnapshot } from '../../lib/personalization';
 import { fetchRecommendations } from '../../lib/recommendations';
 import { useSession } from '../../lib/session';
@@ -73,6 +75,7 @@ export default function ProfileScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [themeLoading, setThemeLoading] = useState(false);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [stats, setStats] = useState<SettingsStats>({
     itemCount: 0,
     outfitCount: 0,
@@ -83,6 +86,16 @@ export default function ProfileScreen() {
     dislikedOutfitCount: 0,
   });
   const [styleSummaryLines, setStyleSummaryLines] = useState<string[]>([]);
+  const [displayName, setDisplayName] = useState(user?.user_metadata?.full_name ?? '');
+  const [appSettings, setAppSettings] = useState<AppSettings>({
+    analyticsEnabled: true,
+    notificationsEnabled: false,
+    weatherAssistEnabled: true,
+  });
+  const [storageDebug, setStorageDebug] = useState<AppStorageDebug>({
+    hasThemePreference: false,
+    hasWeatherCache: false,
+  });
   const styles = createStyles(colors);
 
   useFocusEffect(
@@ -100,12 +113,14 @@ export default function ProfileScreen() {
         setStatsLoading(true);
 
         try {
-          const [wardrobe, outfits, events, personalization, recommendations] = await Promise.all([
+          const [wardrobe, outfits, events, personalization, recommendations, nextAppSettings, nextStorageDebug] = await Promise.all([
             fetchWardrobeItems(user.id),
             fetchOutfits(user.id),
             fetchEvents(user.id),
             fetchPersonalizationSnapshot(user.id),
             fetchRecommendations(user.id),
+            fetchAppSettings(),
+            fetchAppStorageDebug(),
           ]);
 
           if (!mounted) {
@@ -122,6 +137,9 @@ export default function ProfileScreen() {
             dislikedOutfitCount: countSignals(personalization.outfitFeedback, 'dislike'),
           });
           setStyleSummaryLines(recommendations.styleProfile.summaryLines.slice(0, 3));
+          setAppSettings(nextAppSettings);
+          setStorageDebug(nextStorageDebug);
+          setDisplayName(user.user_metadata?.full_name ?? '');
           setErrorMessage(null);
         } catch (error) {
           if (!mounted) {
@@ -173,6 +191,46 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleSaveProfile = async () => {
+    setProfileLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          full_name: displayName.trim() || null,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to update your profile right now.';
+      setErrorMessage(message);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const handleToggleSetting = async (key: keyof AppSettings) => {
+    const nextSettings = {
+      ...appSettings,
+      [key]: !appSettings[key],
+    };
+
+    setAppSettings(nextSettings);
+
+    try {
+      await updateAppSettings(nextSettings);
+      const nextDebug = await fetchAppStorageDebug();
+      setStorageDebug(nextDebug);
+    } catch {
+      setErrorMessage('Unable to save that setting right now.');
+    }
+  };
+
   const accountRows = useMemo(
     () => [
       { label: 'Email', value: user?.email ?? 'Not available' },
@@ -208,6 +266,25 @@ export default function ProfileScreen() {
               <Text style={styles.settingValue}>{row.value}</Text>
             </View>
           ))}
+          <View style={styles.editBlock}>
+            <Text style={styles.settingLabel}>Display name</Text>
+            <TextInput
+              onChangeText={setDisplayName}
+              placeholder="Add a display name"
+              placeholderTextColor={colors.placeholder}
+              style={styles.input}
+              value={displayName}
+            />
+            <Pressable
+              disabled={profileLoading}
+              onPress={handleSaveProfile}
+              style={[styles.inlineButton, profileLoading && styles.buttonDisabled]}
+            >
+              <Text style={styles.inlineButtonText}>
+                {profileLoading ? 'Saving...' : 'Save profile'}
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.panel}>
@@ -294,6 +371,34 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.panel}>
+          <Text style={styles.sectionTitle}>Notifications & privacy</Text>
+          <Text style={styles.helperText}>
+            Keep these lightweight controls local while the account system stays minimal.
+          </Text>
+          <Pressable onPress={() => handleToggleSetting('notificationsEnabled')} style={styles.toggleRow}>
+            <View>
+              <Text style={styles.toggleTitle}>Outfit reminders</Text>
+              <Text style={styles.toggleBody}>Prepare for event-day reminders later.</Text>
+            </View>
+            <Text style={styles.toggleValue}>{appSettings.notificationsEnabled ? 'On' : 'Off'}</Text>
+          </Pressable>
+          <Pressable onPress={() => handleToggleSetting('weatherAssistEnabled')} style={styles.toggleRow}>
+            <View>
+              <Text style={styles.toggleTitle}>Weather assist</Text>
+              <Text style={styles.toggleBody}>Allow local weather to tune outfit suggestions.</Text>
+            </View>
+            <Text style={styles.toggleValue}>{appSettings.weatherAssistEnabled ? 'On' : 'Off'}</Text>
+          </Pressable>
+          <Pressable onPress={() => handleToggleSetting('analyticsEnabled')} style={styles.toggleRow}>
+            <View>
+              <Text style={styles.toggleTitle}>Local usage insights</Text>
+              <Text style={styles.toggleBody}>Keep richer on-device intelligence helpers enabled.</Text>
+            </View>
+            <Text style={styles.toggleValue}>{appSettings.analyticsEnabled ? 'On' : 'Off'}</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.panel}>
           <Text style={styles.sectionTitle}>Quick links</Text>
           <Text style={styles.helperText}>
             Jump back into the parts of the app you use most often.
@@ -335,6 +440,14 @@ export default function ProfileScreen() {
             <Text style={styles.settingLabel}>Session state</Text>
             <Text style={styles.settingValue}>{user ? 'Signed in' : 'Signed out'}</Text>
           </View>
+          <View style={styles.settingRow}>
+            <Text style={styles.settingLabel}>Weather cache</Text>
+            <Text style={styles.settingValue}>{storageDebug.hasWeatherCache ? 'Available' : 'Empty'}</Text>
+          </View>
+          <View style={styles.settingRow}>
+            <Text style={styles.settingLabel}>Stored theme pref</Text>
+            <Text style={styles.settingValue}>{storageDebug.hasThemePreference ? 'Saved' : 'System only'}</Text>
+          </View>
         </View>
 
         {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
@@ -358,6 +471,9 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
       backgroundColor: colors.background,
     },
     content: {
+      alignSelf: 'center',
+      width: '100%',
+      maxWidth: 980,
       paddingHorizontal: 24,
       paddingTop: 18,
       paddingBottom: 40,
@@ -418,6 +534,33 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
       fontSize: 14,
       fontWeight: '700',
       textAlign: 'right',
+    },
+    editBlock: {
+      gap: 10,
+      marginTop: 4,
+    },
+    input: {
+      backgroundColor: colors.input,
+      borderColor: colors.border,
+      borderRadius: 16,
+      borderWidth: 1,
+      color: colors.text,
+      fontSize: 15,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+    },
+    inlineButton: {
+      alignItems: 'center',
+      alignSelf: 'flex-start',
+      backgroundColor: colors.accentMuted,
+      borderRadius: 14,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+    },
+    inlineButtonText: {
+      color: colors.accent,
+      fontSize: 14,
+      fontWeight: '700',
     },
     statsGrid: {
       flexDirection: 'row',
@@ -521,6 +664,32 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     linkBody: {
       color: colors.textMuted,
       lineHeight: 20,
+    },
+    toggleRow: {
+      alignItems: 'center',
+      backgroundColor: colors.surfaceMuted,
+      borderColor: colors.border,
+      borderRadius: 18,
+      borderWidth: 1,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 16,
+      padding: 14,
+    },
+    toggleTitle: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    toggleBody: {
+      color: colors.textMuted,
+      lineHeight: 20,
+      maxWidth: 220,
+    },
+    toggleValue: {
+      color: colors.accent,
+      fontSize: 14,
+      fontWeight: '800',
     },
     error: {
       color: colors.danger,

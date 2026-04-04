@@ -22,6 +22,7 @@ import { fetchEventRecommendations, type RecommendedOutfit } from '../../lib/rec
 import { useSession } from '../../lib/session';
 import { AmbientBackground } from '../../lib/ambient-background';
 import { useTheme } from '../../lib/theme';
+import { recordEventWear } from '../../lib/wear-history';
 
 function isValidDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -96,6 +97,7 @@ export default function EventDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [markingWorn, setMarkingWorn] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -308,6 +310,28 @@ export default function EventDetailScreen() {
     }
   };
 
+  const handleMarkEventWorn = async () => {
+    if (!user || Number.isNaN(eventId)) {
+      return;
+    }
+
+    setMarkingWorn(true);
+    setErrorMessage(null);
+
+    try {
+      await recordEventWear({
+        userId: user.id,
+        eventId,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to track this event wear right now.';
+      setErrorMessage(message);
+    } finally {
+      setMarkingWorn(false);
+    }
+  };
+
   const sortedOutfits = sortOutfits(allOutfits, selectedOccasionId);
 
   if (loading) {
@@ -513,6 +537,20 @@ export default function EventDetailScreen() {
           </View>
 
           {!editing ? (
+            detail.outfit ? (
+              <Pressable
+                disabled={markingWorn}
+                onPress={handleMarkEventWorn}
+                style={[styles.secondaryButton, markingWorn && styles.disabledButton]}
+              >
+                <Text style={styles.secondaryButtonText}>
+                  {markingWorn ? 'Marking worn...' : 'Mark event outfit as worn'}
+                </Text>
+              </Pressable>
+            ) : null
+          ) : null}
+
+          {!editing ? (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Suggested outfits</Text>
               <Text style={styles.body}>
@@ -632,6 +670,9 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     flex: 1,
   },
   content: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 1040,
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 40,

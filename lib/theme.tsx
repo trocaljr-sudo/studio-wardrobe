@@ -36,7 +36,7 @@ type ThemeContextValue = {
   loaded: boolean;
 };
 
-const STORAGE_KEY = 'studio-wardrobe-theme-mode';
+export const THEME_MODE_STORAGE_KEY = 'studio-wardrobe-theme-mode';
 
 const palettes: Record<ResolvedTheme, ThemeColors> = {
   dark: {
@@ -100,7 +100,7 @@ export function ThemeProvider({ children }: PropsWithChildren) {
 
     const loadThemeMode = async () => {
       try {
-        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        const stored = await AsyncStorage.getItem(THEME_MODE_STORAGE_KEY);
 
         if (!mounted) {
           return;
@@ -135,7 +135,7 @@ export function ThemeProvider({ children }: PropsWithChildren) {
       loaded,
       setThemeMode: async (mode: ThemeMode) => {
         setThemeModeState(mode);
-        await AsyncStorage.setItem(STORAGE_KEY, mode);
+        await AsyncStorage.setItem(THEME_MODE_STORAGE_KEY, mode);
       },
     }),
     [loaded, resolvedTheme, themeMode]

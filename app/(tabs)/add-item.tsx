@@ -31,7 +31,7 @@ import {
 
 export default function AddItemScreen() {
   const { user } = useSession();
-  const { colors } = useTheme();
+  const { colors, resolvedTheme } = useTheme();
   const styles = createStyles(colors);
   const [name, setName] = useState('');
   const [color, setColor] = useState('');
@@ -212,7 +212,7 @@ export default function AddItemScreen() {
           options,
           cancelButtonIndex,
           destructiveButtonIndex,
-          userInterfaceStyle: 'dark',
+          userInterfaceStyle: resolvedTheme,
         },
         handleOption
       );
@@ -539,6 +539,9 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     flex: 1,
   },
   content: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 920,
     padding: 24,
     paddingBottom: 48,
   },

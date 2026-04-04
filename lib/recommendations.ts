@@ -12,6 +12,7 @@ import {
   fetchStoredStyleProfile,
   type DerivedStyleProfile,
 } from './personalization';
+import { fetchWearHistory, type WearHistorySnapshot } from './wear-history';
 import { fetchWardrobeItems, type ClothingItem } from './wardrobe';
 
 export type RecommendationMode =
@@ -84,6 +85,7 @@ type DetailedOutfitRecommendation = {
   occasionNames: string[];
   outfit: OutfitSummary;
   tagNames: string[];
+  wearCount: number;
 };
 
 function normalize(value: string | null | undefined) {
@@ -385,6 +387,14 @@ function computeOutfitRecommendation(params: {
     matchQuality += 2;
   }
 
+  if (outfit.wearCount === 0) {
+    matchQuality += 6;
+    reasons.push('Has not been marked as worn yet');
+  } else if (outfit.wearCount >= 3) {
+    matchQuality -= 4;
+    reasons.push('Already in heavy rotation, so the app is giving fresher looks a bump');
+  }
+
   if (weatherMode && weatherMode !== 'any') {
     if (weatherMode === 'cold' && weatherFit.cold) {
       matchQuality += 8;
@@ -447,7 +457,8 @@ function sortRecommendedOutfits(recommendations: RecommendedOutfit[]) {
 function buildDetailedOutfitMap(
   outfits: OutfitSummary[],
   details: OutfitDetail[],
-  events: EventSummary[]
+  events: EventSummary[],
+  wearHistory?: WearHistorySnapshot | null
 ) {
   const pastEvents = events.filter((event) => event.isPast);
 
@@ -471,7 +482,9 @@ function buildDetailedOutfitMap(
       tagNames: outfit.tags.map((tag) => tag.name),
       eventCount: relatedEvents.length,
       eventCountPast: pastRelatedEvents.length,
-      lastWornAt: pastRelatedEvents[0]?.scheduledDate ?? null,
+      lastWornAt:
+        wearHistory?.outfitLastWorn.get(outfit.id) ?? pastRelatedEvents[0]?.scheduledDate ?? null,
+      wearCount: wearHistory?.outfitWearCounts.get(outfit.id) ?? 0,
     } as DetailedOutfitRecommendation;
   });
 }
@@ -574,13 +587,28 @@ function buildClosetInsights(params: {
   items: ClothingItem[];
   itemLastWornMap: Map<string, string>;
   itemOutfitCounts: Map<string, number>;
+  itemWearCounts: Map<string, number>;
   profile: DerivedStyleProfile;
 }) {
-  const { items, itemLastWornMap, itemOutfitCounts, profile } = params;
+  const { items, itemLastWornMap, itemOutfitCounts, itemWearCounts, profile } = params;
   const insights: ClosetInsight[] = [];
   const rankedItems = [...items].sort(
     (left, right) => (itemOutfitCounts.get(right.id) ?? 0) - (itemOutfitCounts.get(left.id) ?? 0)
   );
+
+  const mostWornItem = [...items].sort(
+    (left, right) => (itemWearCounts.get(right.id) ?? 0) - (itemWearCounts.get(left.id) ?? 0)
+  )[0];
+
+  if (mostWornItem && (itemWearCounts.get(mostWornItem.id) ?? 0) > 0) {
+    const count = itemWearCounts.get(mostWornItem.id) ?? 0;
+    insights.push({
+      id: `most-worn-${mostWornItem.id}`,
+      kind: 'go-to',
+      title: `${mostWornItem.name} is one of your most worn pieces`,
+      body: `It has been marked worn ${count} ${count === 1 ? 'time' : 'times'}, which makes it a true go-to in your current rotation.`,
+    });
+  }
 
   const goToItem = rankedItems.find((item) => (itemOutfitCounts.get(item.id) ?? 0) >= 2);
   if (goToItem) {
@@ -890,16 +918,17 @@ export async function fetchRecommendations(
   occasionId?: string | null,
   weatherMode: WeatherMode = 'any'
 ) {
-  const [itemsResult, outfits, occasions, events, storedProfile] = await Promise.all([
+  const [itemsResult, outfits, occasions, events, storedProfile, wearHistory] = await Promise.all([
     fetchWardrobeItems(userId),
     fetchOutfits(userId),
     fetchOccasions(),
     fetchEvents(userId),
     fetchStoredStyleProfile(userId),
+    fetchWearHistory(userId),
   ]);
 
   const detailedOutfits = await Promise.all(outfits.map((outfit) => fetchOutfitDetail(userId, outfit.id)));
-  const detailedRecommendationOutfits = buildDetailedOutfitMap(outfits, detailedOutfits, events);
+  const detailedRecommendationOutfits = buildDetailedOutfitMap(outfits, detailedOutfits, events, wearHistory);
   const profile = deriveUserStyleProfile({
     storedProfile,
     items: itemsResult.items,
@@ -922,7 +951,10 @@ export async function fetchRecommendations(
     detailedOutfits.flatMap((outfit) => outfit.items.map((item) => item.id))
   );
   const itemOutfitCounts = buildItemOutfitCountMap(detailedOutfits);
-  const itemLastWornMap = buildItemLastWornMap(detailedOutfits, events);
+  const itemLastWornMap =
+    wearHistory.available && wearHistory.itemLastWorn.size > 0
+      ? wearHistory.itemLastWorn
+      : buildItemLastWornMap(detailedOutfits, events);
   const unusedItems = buildUnusedItemRecommendations(itemsResult.items, profile, usedItemIds);
   const builtLooks = buildWardrobeLookSuggestions({
     items: itemsResult.items,
@@ -943,6 +975,7 @@ export async function fetchRecommendations(
     items: itemsResult.items,
     itemLastWornMap,
     itemOutfitCounts,
+    itemWearCounts: wearHistory.itemWearCounts,
     profile,
   });
   const outfitMultipliers = buildOutfitMultipliers({
@@ -970,14 +1003,20 @@ export async function fetchRecommendations(
 }
 
 export async function fetchEventRecommendations(userId: string, eventId: number) {
-  const [event, outfits, storedProfile] = await Promise.all([
+  const [event, outfits, storedProfile, wearHistory] = await Promise.all([
     fetchEventDetail(userId, eventId),
     fetchOutfits(userId),
     fetchStoredStyleProfile(userId),
+    fetchWearHistory(userId),
   ]);
   const detailedOutfits = await Promise.all(outfits.map((outfit) => fetchOutfitDetail(userId, outfit.id)));
   const allEvents = await fetchEvents(userId);
-  const detailedRecommendationOutfits = buildDetailedOutfitMap(outfits, detailedOutfits, allEvents);
+  const detailedRecommendationOutfits = buildDetailedOutfitMap(
+    outfits,
+    detailedOutfits,
+    allEvents,
+    wearHistory
+  );
   const profile = deriveUserStyleProfile({
     storedProfile,
     items: detailedOutfits.flatMap((outfit) => outfit.items),

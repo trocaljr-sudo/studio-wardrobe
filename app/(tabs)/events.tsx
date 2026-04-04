@@ -187,6 +187,9 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     backgroundColor: colors.background,
   },
   listContent: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 980,
     paddingHorizontal: 20,
     paddingTop: 24,
     paddingBottom: 32,

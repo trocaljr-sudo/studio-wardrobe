@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AmbientBackground } from '../../lib/ambient-background';
+import { fetchAppSettings } from '../../lib/app-settings';
 import { updateEvent } from '../../lib/events';
 import { detectLocalWeatherMode } from '../../lib/local-weather';
 import { createOutfit } from '../../lib/outfits';
@@ -59,6 +60,7 @@ export default function RecommendationsScreen() {
   const [mode, setMode] = useState<RecommendationMode>('best-match');
   const [weatherMode, setWeatherMode] = useState<WeatherMode>('any');
   const [weatherSummary, setWeatherSummary] = useState<string | null>(null);
+  const [weatherAssistEnabled, setWeatherAssistEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
@@ -107,12 +109,44 @@ export default function RecommendationsScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      let active = true;
+
+      void fetchAppSettings()
+        .then((settings) => {
+          if (active) {
+            setWeatherAssistEnabled(settings.weatherAssistEnabled);
+          }
+        })
+        .catch(() => {
+          if (active) {
+            setWeatherAssistEnabled(true);
+          }
+        });
+
       loadRecommendations(selectedOccasionId, weatherMode);
+
+      return () => {
+        active = false;
+      };
     }, [loadRecommendations, selectedOccasionId, weatherMode])
   );
 
   useEffect(() => {
     let mounted = true;
+
+    const loadAppSettings = async () => {
+      try {
+        const settings = await fetchAppSettings();
+
+        if (mounted) {
+          setWeatherAssistEnabled(settings.weatherAssistEnabled);
+        }
+      } catch {
+        if (mounted) {
+          setWeatherAssistEnabled(true);
+        }
+      }
+    };
 
     const loadEventRecommendations = async () => {
       if (!user || !selectedEventId) {
@@ -135,6 +169,7 @@ export default function RecommendationsScreen() {
       }
     };
 
+    loadAppSettings();
     loadEventRecommendations();
 
     return () => {
@@ -528,18 +563,24 @@ export default function RecommendationsScreen() {
             ))}
           </View>
         </ScrollView>
-        <View style={styles.weatherActionRow}>
-          <Pressable
-            disabled={detectingWeather}
-            onPress={handleUseLocalWeather}
-            style={[styles.secondaryButton, detectingWeather && styles.smallChipDisabled]}
-          >
-            <Text style={styles.secondaryButtonText}>
-              {detectingWeather ? 'Checking local weather...' : 'Use local weather'}
-            </Text>
-          </Pressable>
-          {weatherSummary ? <Text style={styles.weatherSummary}>{weatherSummary}</Text> : null}
-        </View>
+        {weatherAssistEnabled ? (
+          <View style={styles.weatherActionRow}>
+            <Pressable
+              disabled={detectingWeather}
+              onPress={handleUseLocalWeather}
+              style={[styles.secondaryButton, detectingWeather && styles.smallChipDisabled]}
+            >
+              <Text style={styles.secondaryButtonText}>
+                {detectingWeather ? 'Checking local weather...' : 'Use local weather'}
+              </Text>
+            </Pressable>
+            {weatherSummary ? <Text style={styles.weatherSummary}>{weatherSummary}</Text> : null}
+          </View>
+        ) : (
+          <Text style={styles.weatherSummary}>
+            Local weather assist is off in Settings, so today’s picks stay manual.
+          </Text>
+        )}
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.rowScroll}>
           <View style={styles.chipRow}>
@@ -737,6 +778,9 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     backgroundColor: colors.background,
   },
   content: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 1180,
     paddingHorizontal: 20,
     paddingTop: 24,
     paddingBottom: 32,

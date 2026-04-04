@@ -20,6 +20,7 @@ import { deleteOutfit, fetchOccasions, fetchOutfitDetail, fetchSelectableClothin
 import { fetchPersonalizationSnapshot, recordFeedback, toggleFavoriteOutfit } from '../../lib/personalization';
 import { useSession } from '../../lib/session';
 import { useTheme } from '../../lib/theme';
+import { recordOutfitWear } from '../../lib/wear-history';
 import { type ClothingItem, type Tag, fetchTags } from '../../lib/wardrobe';
 
 export default function OutfitDetailScreen() {
@@ -40,6 +41,7 @@ export default function OutfitDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [markingWorn, setMarkingWorn] = useState(false);
   const [favoriteOutfitIds, setFavoriteOutfitIds] = useState<string[]>([]);
   const [outfitFeedback, setOutfitFeedback] = useState<'like' | 'dislike' | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -221,6 +223,29 @@ export default function OutfitDetailScreen() {
     }
   };
 
+  const handleMarkWorn = async () => {
+    if (!user || !id) {
+      return;
+    }
+
+    setMarkingWorn(true);
+    setErrorMessage(null);
+
+    try {
+      await recordOutfitWear({
+        userId: user.id,
+        outfitId: id,
+      });
+      setErrorMessage(null);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to track that outfit wear right now.';
+      setErrorMessage(message);
+    } finally {
+      setMarkingWorn(false);
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -322,6 +347,15 @@ export default function OutfitDetailScreen() {
                     ]}
                   >
                     👎 Dislike
+                  </Text>
+                </Pressable>
+                <Pressable
+                  disabled={markingWorn}
+                  onPress={handleMarkWorn}
+                  style={[styles.feedbackChip, markingWorn && styles.disabledButton]}
+                >
+                  <Text style={styles.feedbackChipText}>
+                    {markingWorn ? 'Marking...' : '✓ Mark worn today'}
                   </Text>
                 </Pressable>
               </View>
@@ -446,6 +480,9 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     flex: 1,
   },
   content: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 1120,
     padding: 24,
     paddingBottom: 48,
   },

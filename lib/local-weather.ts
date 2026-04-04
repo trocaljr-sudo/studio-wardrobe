@@ -8,7 +8,7 @@ type WeatherDetection = {
   summary: string;
 };
 
-const WEATHER_CACHE_KEY = 'studio-wardrobe-local-weather';
+export const WEATHER_CACHE_KEY = 'studio-wardrobe-local-weather';
 
 function formatTemperature(value: number) {
   return `${Math.round(value)}°F`;

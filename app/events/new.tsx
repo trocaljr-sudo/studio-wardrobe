@@ -320,6 +320,9 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     flex: 1,
   },
   content: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 980,
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 40,

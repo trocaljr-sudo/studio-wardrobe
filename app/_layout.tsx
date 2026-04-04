@@ -27,7 +27,11 @@ function RootNavigator() {
         <Stack.Screen name="index" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="events/new" />
+        <Stack.Screen name="events/[id]" />
         <Stack.Screen name="items/[id]" />
+        <Stack.Screen name="outfits/new" />
+        <Stack.Screen name="outfits/[id]" />
         <Stack.Screen name="style-ai/index" />
       </Stack>
     </>
