@@ -224,6 +224,7 @@ export default function OutfitDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <AmbientBackground />
         <View style={styles.centered}>
           <ActivityIndicator color={colors.accent} size="small" />
           <Text style={styles.helperText}>Loading outfit...</Text>
@@ -235,6 +236,7 @@ export default function OutfitDetailScreen() {
   if (!detail) {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <AmbientBackground />
         <View style={styles.centered}>
           <Text style={styles.helperText}>Outfit not found.</Text>
           <Pressable onPress={() => router.replace('/(tabs)/outfits')} style={styles.secondaryButton}>
@@ -258,7 +260,7 @@ export default function OutfitDetailScreen() {
           </Pressable>
 
           {detail.imageUrl ? (
-            <Image source={{ uri: detail.imageUrl }} style={styles.heroImage} />
+            <Image resizeMode="contain" source={{ uri: detail.imageUrl }} style={styles.heroImage} />
           ) : (
             <View style={styles.heroPlaceholder}>
               <Text style={styles.heroPlaceholderText}>No preview image</Text>
@@ -340,7 +342,7 @@ export default function OutfitDetailScreen() {
                     style={[styles.itemCard, editing && selected && styles.itemCardSelected]}
                   >
                     {item.imageUrl ? (
-                      <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
+                      <Image resizeMode="contain" source={{ uri: item.imageUrl }} style={styles.itemImage} />
                     ) : (
                       <View style={styles.itemImagePlaceholder}>
                         <Text style={styles.itemImagePlaceholderText}>No image</Text>
@@ -469,7 +471,10 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     fontWeight: '600',
   },
   heroImage: {
+    backgroundColor: colors.surfaceStrong,
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
     height: 220,
     marginBottom: 18,
     width: '100%',
@@ -572,6 +577,7 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     borderWidth: 2,
   },
   itemImage: {
+    backgroundColor: colors.surfaceStrong,
     height: 120,
     width: '100%',
   },

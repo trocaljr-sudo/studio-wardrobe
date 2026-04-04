@@ -5,6 +5,7 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -48,6 +49,7 @@ export default function AddItemScreen() {
   const [brandsLoading, setBrandsLoading] = useState(true);
   const [tagsLoading, setTagsLoading] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [sourceMenuVisible, setSourceMenuVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -217,15 +219,7 @@ export default function AddItemScreen() {
       return;
     }
 
-    Alert.alert('Add item photo', 'Choose where to import your image from.', [
-      { text: 'Choose from photo album', onPress: () => void handlePickFromLibrary() },
-      { text: 'Choose from files', onPress: () => void handlePickFromFiles() },
-      { text: 'Use camera', onPress: () => void handleUseCamera() },
-      ...(selectedImageUri
-        ? [{ text: 'Remove photo', style: 'destructive' as const, onPress: handleRemoveImage }]
-        : []),
-      { text: 'Cancel', style: 'cancel' as const },
-    ]);
+    setSourceMenuVisible(true);
   };
 
   const handleSave = async () => {
@@ -472,6 +466,66 @@ export default function AddItemScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setSourceMenuVisible(false)}
+        transparent
+        visible={sourceMenuVisible}
+      >
+        <View style={styles.sheetOverlay}>
+          <Pressable onPress={() => setSourceMenuVisible(false)} style={styles.sheetBackdrop} />
+          <View style={styles.sheetCard}>
+            <Text style={styles.sheetTitle}>Add item photo</Text>
+            <Text style={styles.sheetBody}>Choose where to import your image from.</Text>
+            <Pressable
+              onPress={() => {
+                setSourceMenuVisible(false);
+                void handlePickFromLibrary();
+              }}
+              style={styles.sheetButton}
+            >
+              <Text style={styles.sheetButtonText}>Choose from photo album</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setSourceMenuVisible(false);
+                void handlePickFromFiles();
+              }}
+              style={styles.sheetButton}
+            >
+              <Text style={styles.sheetButtonText}>Choose from files</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setSourceMenuVisible(false);
+                void handleUseCamera();
+              }}
+              style={styles.sheetButton}
+            >
+              <Text style={styles.sheetButtonText}>Use camera</Text>
+            </Pressable>
+            {selectedImageUri ? (
+              <Pressable
+                onPress={() => {
+                  setSourceMenuVisible(false);
+                  handleRemoveImage();
+                }}
+                style={[styles.sheetButton, styles.sheetDestructiveButton]}
+              >
+                <Text style={[styles.sheetButtonText, styles.sheetDestructiveButtonText]}>
+                  Remove photo
+                </Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              onPress={() => setSourceMenuVisible(false)}
+              style={[styles.sheetButton, styles.sheetCancelButton]}
+            >
+              <Text style={styles.sheetButtonText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -630,5 +684,56 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     color: colors.accentText,
     fontSize: 16,
     fontWeight: '700',
+  },
+  sheetOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  sheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  sheetCard: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 20,
+    gap: 10,
+  },
+  sheetTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  sheetBody: {
+    color: colors.textMuted,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  sheetButton: {
+    alignItems: 'center',
+    backgroundColor: colors.surfaceStrong,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  sheetButtonText: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  sheetDestructiveButton: {
+    backgroundColor: colors.dangerMuted,
+    borderColor: colors.danger,
+  },
+  sheetDestructiveButtonText: {
+    color: colors.danger,
+  },
+  sheetCancelButton: {
+    marginTop: 4,
   },
 });

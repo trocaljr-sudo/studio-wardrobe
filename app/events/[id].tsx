@@ -349,7 +349,7 @@ export default function EventDetailScreen() {
           </Pressable>
 
           {detail.outfit?.imageUrl ? (
-            <Image source={{ uri: detail.outfit.imageUrl }} style={styles.heroImage} />
+            <Image resizeMode="contain" source={{ uri: detail.outfit.imageUrl }} style={styles.heroImage} />
           ) : (
             <View style={styles.heroPlaceholder}>
               <Text style={styles.heroPlaceholderText}>No outfit assigned</Text>
@@ -471,7 +471,7 @@ export default function EventDetailScreen() {
                       style={[styles.outfitCard, selected && styles.outfitCardSelected]}
                     >
                       {outfit.imageUrl ? (
-                        <Image source={{ uri: outfit.imageUrl }} style={styles.outfitImage} />
+                        <Image resizeMode="contain" source={{ uri: outfit.imageUrl }} style={styles.outfitImage} />
                       ) : (
                         <View style={styles.outfitPlaceholderSmall}>
                           <Text style={styles.outfitPlaceholderText}>No preview</Text>
@@ -492,7 +492,7 @@ export default function EventDetailScreen() {
             ) : detail.outfit ? (
               <View style={styles.outfitCardStatic}>
                 {detail.outfit.imageUrl ? (
-                  <Image source={{ uri: detail.outfit.imageUrl }} style={styles.outfitImage} />
+                  <Image resizeMode="contain" source={{ uri: detail.outfit.imageUrl }} style={styles.outfitImage} />
                 ) : (
                   <View style={styles.outfitPlaceholderSmall}>
                     <Text style={styles.outfitPlaceholderText}>No preview</Text>
@@ -522,7 +522,11 @@ export default function EventDetailScreen() {
                 recommendedOutfits.map((recommendation) => (
                   <View key={recommendation.outfit.id} style={styles.recommendationCard}>
                     {recommendation.outfit.imageUrl ? (
-                      <Image source={{ uri: recommendation.outfit.imageUrl }} style={styles.recommendationImage} />
+                      <Image
+                        resizeMode="contain"
+                        source={{ uri: recommendation.outfit.imageUrl }}
+                        style={styles.recommendationImage}
+                      />
                     ) : (
                       <View style={styles.outfitPlaceholderSmall}>
                         <Text style={styles.outfitPlaceholderText}>No preview</Text>

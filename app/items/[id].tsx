@@ -283,7 +283,7 @@ export default function ItemDetailScreen() {
           </Pressable>
 
           {previewUri ? (
-            <Image source={{ uri: previewUri }} style={styles.image} />
+            <Image resizeMode="contain" source={{ uri: previewUri }} style={styles.image} />
           ) : (
             <View style={styles.imageFallback}>
               <Text style={styles.imageFallbackText}>No image yet</Text>
@@ -506,6 +506,8 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     height: 320,
     borderRadius: 24,
     backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   imageFallback: {
     width: '100%',

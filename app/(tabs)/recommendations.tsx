@@ -13,13 +13,19 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AmbientBackground } from '../../lib/ambient-background';
+import { updateEvent } from '../../lib/events';
+import { detectLocalWeatherMode } from '../../lib/local-weather';
+import { createOutfit } from '../../lib/outfits';
 import {
+  type ClosetInsight,
   fetchEventRecommendations,
   fetchRecommendations,
   type BuiltLookSuggestion,
+  type OutfitMultiplier,
   type RecommendationMode,
   type RecommendedItem,
   type RecommendedOutfit,
+  type WeatherMode,
 } from '../../lib/recommendations';
 import { recordFeedback, toggleFavoriteOutfit } from '../../lib/personalization';
 import { useSession } from '../../lib/session';
@@ -34,6 +40,14 @@ const MODES: { id: RecommendationMode; label: string }[] = [
   { id: 'build-from-items', label: 'Build from items' },
 ];
 
+const WEATHER_MODES: { id: WeatherMode; label: string }[] = [
+  { id: 'any', label: 'Any weather' },
+  { id: 'cold', label: 'Cold' },
+  { id: 'mild', label: 'Mild' },
+  { id: 'warm', label: 'Warm' },
+  { id: 'rainy', label: 'Rainy' },
+];
+
 export default function RecommendationsScreen() {
   const { user } = useSession();
   const { colors } = useTheme();
@@ -43,12 +57,20 @@ export default function RecommendationsScreen() {
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [eventRecommendations, setEventRecommendations] = useState<RecommendedOutfit[]>([]);
   const [mode, setMode] = useState<RecommendationMode>('best-match');
+  const [weatherMode, setWeatherMode] = useState<WeatherMode>('any');
+  const [weatherSummary, setWeatherSummary] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [detectingWeather, setDetectingWeather] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const loadRecommendations = useCallback(
-    async (nextOccasionId: string | null, modeType: 'initial' | 'refresh' = 'initial') => {
+    async (
+      nextOccasionId: string | null,
+      nextWeatherMode: WeatherMode,
+      modeType: 'initial' | 'refresh' = 'initial'
+    ) => {
       if (!user) {
         setState(null);
         setLoading(false);
@@ -63,7 +85,7 @@ export default function RecommendationsScreen() {
       }
 
       try {
-        const nextState = await fetchRecommendations(user.id, nextOccasionId);
+        const nextState = await fetchRecommendations(user.id, nextOccasionId, nextWeatherMode);
         setState(nextState);
         setSelectedEventId((current) =>
           current && nextState.upcomingEvents.some((event) => event.id === current)
@@ -85,8 +107,8 @@ export default function RecommendationsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadRecommendations(selectedOccasionId);
-    }, [loadRecommendations, selectedOccasionId])
+      loadRecommendations(selectedOccasionId, weatherMode);
+    }, [loadRecommendations, selectedOccasionId, weatherMode])
   );
 
   useEffect(() => {
@@ -139,7 +161,7 @@ export default function RecommendationsScreen() {
         signal,
         source,
       });
-      await loadRecommendations(selectedOccasionId);
+      await loadRecommendations(selectedOccasionId, weatherMode);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unable to save that feedback right now.';
@@ -154,11 +176,99 @@ export default function RecommendationsScreen() {
 
     try {
       await toggleFavoriteOutfit(user.id, outfitId);
-      await loadRecommendations(selectedOccasionId);
+      await loadRecommendations(selectedOccasionId, weatherMode);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unable to update favorites right now.';
       setErrorMessage(message);
+    }
+  };
+
+  const createOutfitFromSuggestion = async (suggestion: BuiltLookSuggestion) => {
+    if (!user) {
+      throw new Error('Sign in again before saving a suggested look.');
+    }
+
+    return createOutfit({
+      ownerId: user.id,
+      name: suggestion.title,
+      clothingItems: suggestion.items,
+      occasionIds: selectedOccasionId ? [selectedOccasionId] : [],
+    });
+  };
+
+  const handleSaveBuiltLook = async (suggestion: BuiltLookSuggestion) => {
+    setActionLoadingId(`save-${suggestion.id}`);
+    setErrorMessage(null);
+
+    try {
+      const outfit = await createOutfitFromSuggestion(suggestion);
+      await loadRecommendations(selectedOccasionId, weatherMode);
+      router.push(`/outfits/${outfit.id}`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to save that suggested look right now.';
+      setErrorMessage(message);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleAssignToNextEvent = async (suggestion: BuiltLookSuggestion) => {
+    if (!user) {
+      return;
+    }
+
+    const targetEvent = activeEvent ?? state?.upcomingEvents[0] ?? null;
+
+    if (!targetEvent || !targetEvent.scheduledDate) {
+      setErrorMessage('Add an upcoming event first so the app has somewhere to assign this look.');
+      return;
+    }
+
+    setActionLoadingId(`assign-${suggestion.id}`);
+    setErrorMessage(null);
+
+    try {
+      const outfit = await createOutfitFromSuggestion(suggestion);
+      await updateEvent({
+        eventId: targetEvent.id,
+        userId: user.id,
+        title: targetEvent.title,
+        notes: targetEvent.notes ?? '',
+        scheduledDate: targetEvent.scheduledDate,
+        scheduledTime: targetEvent.scheduledTime ?? '',
+        occasionId: targetEvent.occasion?.id ?? null,
+        outfitId: outfit.id,
+      });
+      await loadRecommendations(selectedOccasionId, weatherMode);
+      router.push(`/events/${targetEvent.id}`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to assign that look to an event right now.';
+      setErrorMessage(message);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleUseLocalWeather = async () => {
+    setDetectingWeather(true);
+    setErrorMessage(null);
+
+    try {
+      const detection = await detectLocalWeatherMode();
+      setWeatherMode(detection.mode);
+      setWeatherSummary(
+        detection.cached ? `${detection.summary} · cached fallback` : detection.summary
+      );
+      await loadRecommendations(selectedOccasionId, detection.mode);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to detect local weather right now.';
+      setErrorMessage(message);
+    } finally {
+      setDetectingWeather(false);
     }
   };
 
@@ -169,15 +279,28 @@ export default function RecommendationsScreen() {
       style={styles.card}
     >
       {recommendation.outfit.imageUrl ? (
-        <Image source={{ uri: recommendation.outfit.imageUrl }} style={styles.cardImage} />
+        <Image resizeMode="contain" source={{ uri: recommendation.outfit.imageUrl }} style={styles.cardImage} />
       ) : (
         <View style={styles.cardPlaceholder}>
           <Text style={styles.cardPlaceholderText}>No preview</Text>
         </View>
       )}
       <View style={styles.cardBody}>
-        <Text style={styles.cardTitle}>{recommendation.outfit.name}</Text>
-        <Text style={styles.cardMeta}>{recommendation.itemCount} items</Text>
+        <View style={styles.scoreRow}>
+          <Text style={styles.cardTitle}>{recommendation.outfit.name}</Text>
+          <View style={styles.scorePill}>
+            <Text style={styles.scorePillText}>{recommendation.scorePercent}%</Text>
+          </View>
+        </View>
+        <Text style={styles.cardMeta}>
+          {recommendation.itemCount} items · {recommendation.scoreLabel}
+        </Text>
+        <View style={styles.breakdownRow}>
+          <Text style={styles.breakdownText}>Match {recommendation.breakdown.matchQuality}</Text>
+          <Text style={styles.breakdownText}>Color {recommendation.breakdown.colorHarmony}</Text>
+          <Text style={styles.breakdownText}>Balance {recommendation.breakdown.categoryBalance}</Text>
+          <Text style={styles.breakdownText}>Style {recommendation.breakdown.styleAlignment}</Text>
+        </View>
         {recommendation.reasons.map((reason) => (
           <Text key={`${recommendation.outfit.id}-${reason}`} style={styles.reasonText}>
             {reason}
@@ -226,7 +349,7 @@ export default function RecommendationsScreen() {
   const renderItemCard = (entry: RecommendedItem) => (
     <View key={entry.item.id} style={styles.card}>
       {entry.item.imageUrl ? (
-        <Image source={{ uri: entry.item.imageUrl }} style={styles.cardImage} />
+        <Image resizeMode="contain" source={{ uri: entry.item.imageUrl }} style={styles.cardImage} />
       ) : (
         <View style={styles.cardPlaceholder}>
           <Text style={styles.cardPlaceholderText}>No image</Text>
@@ -248,7 +371,12 @@ export default function RecommendationsScreen() {
 
   const renderBuiltLook = (suggestion: BuiltLookSuggestion) => (
     <View key={suggestion.id} style={styles.lookCard}>
-      <Text style={styles.lookTitle}>{suggestion.title}</Text>
+      <View style={styles.scoreRow}>
+        <Text style={styles.lookTitle}>{suggestion.title}</Text>
+        <View style={styles.scorePill}>
+          <Text style={styles.scorePillText}>{suggestion.scoreLabel}</Text>
+        </View>
+      </View>
       <View style={styles.lookItems}>
         {suggestion.items.map((item) => (
           <View key={item.id} style={styles.lookItemPill}>
@@ -261,6 +389,71 @@ export default function RecommendationsScreen() {
           {reason}
         </Text>
       ))}
+      <View style={styles.actionRow}>
+        <Pressable
+          disabled={actionLoadingId !== null}
+          onPress={() => handleSaveBuiltLook(suggestion)}
+          style={[
+            styles.smallChip,
+            styles.smallChipActive,
+            actionLoadingId !== null && styles.smallChipDisabled,
+          ]}
+        >
+          <Text style={[styles.smallChipText, styles.smallChipTextActive]}>
+            {actionLoadingId === `save-${suggestion.id}` ? 'Saving...' : 'Save this look'}
+          </Text>
+        </Pressable>
+        <Pressable
+          disabled={actionLoadingId !== null}
+          onPress={() =>
+            router.push({
+              pathname: '/outfits/new',
+              params: {
+                suggestedItemIds: suggestion.items.map((item) => item.id).join(','),
+              },
+            })
+          }
+          style={[styles.smallChip, actionLoadingId !== null && styles.smallChipDisabled]}
+        >
+          <Text style={styles.smallChipText}>Open in builder</Text>
+        </Pressable>
+        {(activeEvent ?? state?.upcomingEvents[0]) ? (
+          <Pressable
+            disabled={actionLoadingId !== null}
+            onPress={() => handleAssignToNextEvent(suggestion)}
+            style={[styles.smallChip, actionLoadingId !== null && styles.smallChipDisabled]}
+          >
+            <Text style={styles.smallChipText}>
+              {actionLoadingId === `assign-${suggestion.id}`
+                ? 'Assigning...'
+                : 'Assign to next event'}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
+  );
+
+  const renderClosetInsight = (insight: ClosetInsight) => (
+    <View key={insight.id} style={styles.insightCard}>
+      <Text style={styles.insightTitle}>{insight.title}</Text>
+      <Text style={styles.insightBody}>{insight.body}</Text>
+    </View>
+  );
+
+  const renderMultiplierCard = (entry: OutfitMultiplier) => (
+    <View key={entry.item.id} style={styles.multiplierCard}>
+      {entry.item.imageUrl ? (
+        <Image resizeMode="contain" source={{ uri: entry.item.imageUrl }} style={styles.multiplierImage} />
+      ) : (
+        <View style={styles.multiplierPlaceholder}>
+          <Text style={styles.cardPlaceholderText}>No image</Text>
+        </View>
+      )}
+      <View style={styles.multiplierCopy}>
+        <Text style={styles.multiplierTitle}>{entry.item.name}</Text>
+        <Text style={styles.multiplierMeta}>{entry.reason}</Text>
+      </View>
     </View>
   );
 
@@ -285,7 +478,7 @@ export default function RecommendationsScreen() {
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
-            onRefresh={() => loadRecommendations(selectedOccasionId, 'refresh')}
+            onRefresh={() => loadRecommendations(selectedOccasionId, weatherMode, 'refresh')}
             refreshing={refreshing}
             tintColor={colors.accent}
           />
@@ -319,6 +512,37 @@ export default function RecommendationsScreen() {
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.rowScroll}>
           <View style={styles.chipRow}>
+            {WEATHER_MODES.map((entry) => (
+              <Pressable
+                key={entry.id}
+                onPress={() => {
+                  setWeatherMode(entry.id);
+                  setWeatherSummary(null);
+                }}
+                style={[styles.chip, weatherMode === entry.id && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, weatherMode === entry.id && styles.chipTextActive]}>
+                  {entry.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </ScrollView>
+        <View style={styles.weatherActionRow}>
+          <Pressable
+            disabled={detectingWeather}
+            onPress={handleUseLocalWeather}
+            style={[styles.secondaryButton, detectingWeather && styles.smallChipDisabled]}
+          >
+            <Text style={styles.secondaryButtonText}>
+              {detectingWeather ? 'Checking local weather...' : 'Use local weather'}
+            </Text>
+          </Pressable>
+          {weatherSummary ? <Text style={styles.weatherSummary}>{weatherSummary}</Text> : null}
+        </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.rowScroll}>
+          <View style={styles.chipRow}>
             <Pressable
               onPress={() => setSelectedOccasionId(null)}
               style={[styles.chip, !selectedOccasionId && styles.chipActive]}
@@ -342,6 +566,19 @@ export default function RecommendationsScreen() {
         </ScrollView>
 
         {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
+
+        {state?.todaySuggestions.length ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>What should I wear today</Text>
+            <Text style={styles.sectionBody}>{state.todayContext}</Text>
+            <Text style={styles.helperNote}>
+              {weatherMode === 'any'
+                ? 'Use the weather chips above to tune today’s outfit mix.'
+                : `Currently tuned for ${WEATHER_MODES.find((entry) => entry.id === weatherMode)?.label?.toLowerCase()}.`}
+            </Text>
+            {state.todaySuggestions.map(renderOutfitCard)}
+          </View>
+        ) : null}
 
         {mode === 'best-match' ? (
           <View style={styles.section}>
@@ -455,6 +692,40 @@ export default function RecommendationsScreen() {
             )}
           </View>
         ) : null}
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Closet utilization insights</Text>
+          <Text style={styles.sectionBody}>
+            Quick reads on what you lean on most, what is underused, and where you can get more range out of the closet.
+          </Text>
+          {state?.closetInsights.length ? (
+            state.closetInsights.map(renderClosetInsight)
+          ) : (
+            <View style={styles.emptyBox}>
+              <Text style={styles.emptyTitle}>Insights will appear as you build more looks</Text>
+              <Text style={styles.emptyBody}>
+                Save a few outfits and the app will start surfacing your strongest rotation patterns.
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Outfit multiplier</Text>
+          <Text style={styles.sectionBody}>
+            Pieces that stretch across multiple looks are the strongest closet multipliers.
+          </Text>
+          {state?.outfitMultipliers.length ? (
+            state.outfitMultipliers.map(renderMultiplierCard)
+          ) : (
+            <View style={styles.emptyBox}>
+              <Text style={styles.emptyTitle}>Need more saved outfits first</Text>
+              <Text style={styles.emptyBody}>
+                Once items appear across multiple looks, they will show up here as multiplier pieces.
+              </Text>
+            </View>
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -560,6 +831,23 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     padding: 16,
     gap: 6,
   },
+  scoreRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  scorePill: {
+    backgroundColor: colors.accentMuted,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  scorePillText: {
+    color: colors.accent,
+    fontSize: 12,
+    fontWeight: '800',
+  },
   cardTitle: {
     fontSize: 18,
     fontWeight: '700',
@@ -567,6 +855,16 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
   },
   cardMeta: {
     color: colors.textMuted,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  breakdownText: {
+    color: colors.textSubtle,
+    fontSize: 12,
+    fontWeight: '600',
   },
   reasonText: {
     color: colors.textMuted,
@@ -611,6 +909,68 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     color: colors.accent,
     fontWeight: '700',
   },
+  weatherActionRow: {
+    gap: 10,
+  },
+  weatherSummary: {
+    color: colors.textSubtle,
+    lineHeight: 20,
+  },
+  insightCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    padding: 16,
+    gap: 8,
+  },
+  insightTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  insightBody: {
+    color: colors.textMuted,
+    lineHeight: 21,
+  },
+  multiplierCard: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 20,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 14,
+    overflow: 'hidden',
+    padding: 12,
+  },
+  multiplierImage: {
+    backgroundColor: colors.surfaceStrong,
+    borderRadius: 14,
+    height: 88,
+    width: 88,
+  },
+  multiplierPlaceholder: {
+    alignItems: 'center',
+    backgroundColor: colors.surfaceStrong,
+    borderRadius: 14,
+    height: 88,
+    justifyContent: 'center',
+    width: 88,
+  },
+  multiplierCopy: {
+    flex: 1,
+    gap: 6,
+  },
+  multiplierTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  multiplierMeta: {
+    color: colors.textMuted,
+    lineHeight: 21,
+  },
   actionRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -636,11 +996,14 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
   smallChipTextActive: {
     color: colors.accent,
   },
+  smallChipDisabled: {
+    opacity: 0.55,
+  },
   emptyBox: {
     borderRadius: 20,
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#E5D8CA',
+    borderColor: colors.border,
     padding: 16,
     gap: 8,
   },
@@ -661,6 +1024,10 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
   },
   helperText: {
     color: colors.textMuted,
+  },
+  helperNote: {
+    color: colors.textSubtle,
+    lineHeight: 20,
   },
   error: {
     color: colors.danger,

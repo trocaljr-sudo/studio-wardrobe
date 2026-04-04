@@ -277,7 +277,7 @@ export default function NewEventScreen() {
                   style={[styles.outfitCard, selected && styles.outfitCardSelected]}
                 >
                   {outfit.imageUrl ? (
-                    <Image source={{ uri: outfit.imageUrl }} style={styles.outfitImage} />
+                    <Image resizeMode="contain" source={{ uri: outfit.imageUrl }} style={styles.outfitImage} />
                   ) : (
                     <View style={styles.outfitPlaceholder}>
                       <Text style={styles.outfitPlaceholderText}>No preview</Text>

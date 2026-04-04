@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { type Dispatch, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,6 +16,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AmbientBackground } from '../../lib/ambient-background';
 import { createOutfit, fetchOccasions, fetchSelectableClothingItems } from '../../lib/outfits';
+import {
+  buildBuilderAssistantSuggestions,
+  fetchRecommendations,
+  type BuilderAssistantSuggestion,
+} from '../../lib/recommendations';
 import { useSession } from '../../lib/session';
 import { useTheme } from '../../lib/theme';
 import { type ClothingItem, type Tag, fetchTags } from '../../lib/wardrobe';
@@ -26,6 +31,7 @@ type Occasion = {
 };
 
 export default function NewOutfitScreen() {
+  const params = useLocalSearchParams<{ suggestedItemIds?: string | string[] }>();
   const { user } = useSession();
   const { colors } = useTheme();
   const styles = createStyles(colors);
@@ -37,6 +43,16 @@ export default function NewOutfitScreen() {
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [selectedOccasionIds, setSelectedOccasionIds] = useState<string[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [assistantSuggestions, setAssistantSuggestions] = useState<BuilderAssistantSuggestion[]>([]);
+  const [styleSignals, setStyleSignals] = useState<{
+    favoriteItemIds: string[];
+    preferredCategoryNames: string[];
+    preferredColors: string[];
+  }>({
+    favoriteItemIds: [],
+    preferredCategoryNames: [],
+    preferredColors: [],
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -55,10 +71,11 @@ export default function NewOutfitScreen() {
       }
 
       try {
-        const [nextItems, nextOccasions, nextTags] = await Promise.all([
+        const [nextItems, nextOccasions, nextTags, recommendationState] = await Promise.all([
           fetchSelectableClothingItems(user.id),
           fetchOccasions(),
           fetchTags(),
+          fetchRecommendations(user.id),
         ]);
 
         if (!mounted) {
@@ -68,6 +85,11 @@ export default function NewOutfitScreen() {
         setItems(nextItems);
         setOccasions(nextOccasions);
         setTags(nextTags);
+        setStyleSignals({
+          favoriteItemIds: recommendationState.styleProfile.favoriteItemIds,
+          preferredCategoryNames: recommendationState.styleProfile.preferredCategoryNames,
+          preferredColors: recommendationState.styleProfile.preferredColors,
+        });
       } catch (error) {
         if (!mounted) {
           return;
@@ -89,6 +111,42 @@ export default function NewOutfitScreen() {
       mounted = false;
     };
   }, [user]);
+
+  useEffect(() => {
+    const raw = params.suggestedItemIds;
+    const value = Array.isArray(raw) ? raw[0] : raw;
+
+    if (!value) {
+      return;
+    }
+
+    const nextIds = value
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+
+    if (nextIds.length === 0) {
+      return;
+    }
+
+    setSelectedItemIds((current) => Array.from(new Set([...current, ...nextIds])));
+  }, [params.suggestedItemIds]);
+
+  useEffect(() => {
+    setAssistantSuggestions(
+      buildBuilderAssistantSuggestions({
+        items,
+        profile: styleSignals,
+        selectedOccasionNames: occasions
+          .filter((occasion) => selectedOccasionIds.includes(occasion.id))
+          .map((occasion) => occasion.name),
+        selectedTagNames: tags
+          .filter((tag) => selectedTagIds.includes(tag.id))
+          .map((tag) => tag.name),
+        selectedItemIds,
+      })
+    );
+  }, [items, occasions, selectedItemIds, selectedOccasionIds, selectedTagIds, styleSignals, tags]);
 
   const toggleSelection = (
     id: string,
@@ -262,6 +320,61 @@ export default function NewOutfitScreen() {
                 <Pressable onPress={() => router.push('/(tabs)/add-item')} style={styles.secondaryButton}>
                   <Text style={styles.secondaryButtonText}>Add wardrobe item</Text>
                 </Pressable>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Smart build assistant</Text>
+            <Text style={styles.sectionBody}>
+              Pick a piece and the assistant will suggest what could complete the outfit based on balance, color, and your usual style signals.
+            </Text>
+            {assistantSuggestions.length > 0 ? (
+              <View style={styles.assistantList}>
+                {assistantSuggestions.map((suggestion) => (
+                  <Pressable
+                    key={suggestion.item.id}
+                    onPress={() => toggleSelection(suggestion.item.id, setSelectedItemIds)}
+                    style={styles.assistantCard}
+                  >
+                    {suggestion.item.imageUrl ? (
+                      <Image
+                        resizeMode="contain"
+                        source={{ uri: suggestion.item.imageUrl }}
+                        style={styles.assistantImage}
+                      />
+                    ) : (
+                      <View style={styles.assistantPlaceholder}>
+                        <Text style={styles.assistantPlaceholderText}>No image</Text>
+                      </View>
+                    )}
+                    <View style={styles.assistantCopy}>
+                      <View style={styles.assistantHeader}>
+                        <Text style={styles.assistantTitle}>{suggestion.item.name}</Text>
+                        <View style={styles.assistantScorePill}>
+                          <Text style={styles.assistantScoreText}>{suggestion.score}</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.assistantMeta}>
+                        {[suggestion.item.categoryName, suggestion.item.color]
+                          .filter(Boolean)
+                          .join(' · ') || 'Wardrobe item'}
+                      </Text>
+                      {suggestion.reasons.map((reason) => (
+                        <Text key={`${suggestion.item.id}-${reason}`} style={styles.assistantReason}>
+                          {reason}
+                        </Text>
+                      ))}
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateTitle}>Start with a piece you want to wear</Text>
+                <Text style={styles.emptyStateBody}>
+                  Once you select a few pieces, the assistant will suggest what to add next.
+                </Text>
               </View>
             )}
           </View>
@@ -457,6 +570,12 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
   section: {
     marginTop: 14,
   },
+  sectionBody: {
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 21,
+    marginBottom: 12,
+  },
   sectionTitle: {
     color: colors.text,
     fontSize: 16,
@@ -541,6 +660,73 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     color: colors.text,
     fontSize: 14,
     fontWeight: '600',
+  },
+  assistantList: {
+    gap: 12,
+  },
+  assistantCard: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    overflow: 'hidden',
+    padding: 12,
+  },
+  assistantImage: {
+    backgroundColor: colors.surfaceStrong,
+    borderRadius: 14,
+    height: 88,
+    width: 88,
+  },
+  assistantPlaceholder: {
+    alignItems: 'center',
+    backgroundColor: colors.surfaceStrong,
+    borderRadius: 14,
+    height: 88,
+    justifyContent: 'center',
+    width: 88,
+  },
+  assistantPlaceholderText: {
+    color: colors.textSubtle,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  assistantCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  assistantHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  assistantTitle: {
+    color: colors.text,
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  assistantScorePill: {
+    backgroundColor: colors.accentMuted,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  assistantScoreText: {
+    color: colors.accent,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  assistantMeta: {
+    color: colors.textMuted,
+  },
+  assistantReason: {
+    color: colors.textMuted,
+    lineHeight: 19,
   },
   chipWrap: {
     flexDirection: 'row',

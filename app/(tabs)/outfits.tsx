@@ -204,7 +204,7 @@ export default function OutfitsScreen() {
               </Text>
             </Pressable>
             {item.imageUrl ? (
-              <Image source={{ uri: item.imageUrl }} style={styles.image} />
+              <Image resizeMode="contain" source={{ uri: item.imageUrl }} style={styles.image} />
             ) : (
               <View style={styles.imageFallback}>
                 <Text style={styles.imageFallbackText}>No preview</Text>

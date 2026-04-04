@@ -1,4 +1,4 @@
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,6 +14,7 @@ import { AmbientBackground } from '../../lib/ambient-background';
 import { fetchEvents } from '../../lib/events';
 import { fetchOutfits } from '../../lib/outfits';
 import { fetchPersonalizationSnapshot } from '../../lib/personalization';
+import { fetchRecommendations } from '../../lib/recommendations';
 import { useSession } from '../../lib/session';
 import { supabase } from '../../lib/supabase';
 import { type ThemeMode, useTheme } from '../../lib/theme';
@@ -81,6 +82,7 @@ export default function ProfileScreen() {
     likedOutfitCount: 0,
     dislikedOutfitCount: 0,
   });
+  const [styleSummaryLines, setStyleSummaryLines] = useState<string[]>([]);
   const styles = createStyles(colors);
 
   useFocusEffect(
@@ -98,11 +100,12 @@ export default function ProfileScreen() {
         setStatsLoading(true);
 
         try {
-          const [wardrobe, outfits, events, personalization] = await Promise.all([
+          const [wardrobe, outfits, events, personalization, recommendations] = await Promise.all([
             fetchWardrobeItems(user.id),
             fetchOutfits(user.id),
             fetchEvents(user.id),
             fetchPersonalizationSnapshot(user.id),
+            fetchRecommendations(user.id),
           ]);
 
           if (!mounted) {
@@ -118,6 +121,7 @@ export default function ProfileScreen() {
             likedOutfitCount: countSignals(personalization.outfitFeedback, 'like'),
             dislikedOutfitCount: countSignals(personalization.outfitFeedback, 'dislike'),
           });
+          setStyleSummaryLines(recommendations.styleProfile.summaryLines.slice(0, 3));
           setErrorMessage(null);
         } catch (error) {
           if (!mounted) {
@@ -249,6 +253,15 @@ export default function ProfileScreen() {
               <Text style={styles.preferenceLabel}>Skipped looks</Text>
             </View>
           </View>
+          {styleSummaryLines.length > 0 ? (
+            <View style={styles.summaryBox}>
+              {styleSummaryLines.map((line) => (
+                <Text key={line} style={styles.summaryText}>
+                  {line}
+                </Text>
+              ))}
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.panel}>
@@ -277,6 +290,31 @@ export default function ProfileScreen() {
                 </Pressable>
               );
             })}
+          </View>
+        </View>
+
+        <View style={styles.panel}>
+          <Text style={styles.sectionTitle}>Quick links</Text>
+          <Text style={styles.helperText}>
+            Jump back into the parts of the app you use most often.
+          </Text>
+          <View style={styles.linkGrid}>
+            <Pressable onPress={() => router.push('/(tabs)/wardrobe')} style={styles.linkCard}>
+              <Text style={styles.linkTitle}>Wardrobe</Text>
+              <Text style={styles.linkBody}>Browse and manage your closet.</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push('/(tabs)/outfits')} style={styles.linkCard}>
+              <Text style={styles.linkTitle}>Outfits</Text>
+              <Text style={styles.linkBody}>Open saved looks and build new ones.</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push('/(tabs)/events')} style={styles.linkCard}>
+              <Text style={styles.linkTitle}>Events</Text>
+              <Text style={styles.linkBody}>Plan upcoming looks around your schedule.</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push('/style-ai')} style={styles.linkCard}>
+              <Text style={styles.linkTitle}>Style AI</Text>
+              <Text style={styles.linkBody}>Ask for grounded outfit suggestions.</Text>
+            </Pressable>
           </View>
         </View>
 
@@ -429,6 +467,18 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
       fontSize: 13,
       fontWeight: '600',
     },
+    summaryBox: {
+      backgroundColor: colors.surfaceMuted,
+      borderColor: colors.border,
+      borderRadius: 18,
+      borderWidth: 1,
+      gap: 8,
+      padding: 14,
+    },
+    summaryText: {
+      color: colors.textMuted,
+      lineHeight: 20,
+    },
     themeRow: {
       gap: 10,
     },
@@ -451,6 +501,26 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     },
     themeButtonTextActive: {
       color: colors.accentText,
+    },
+    linkGrid: {
+      gap: 12,
+    },
+    linkCard: {
+      backgroundColor: colors.surfaceMuted,
+      borderColor: colors.border,
+      borderRadius: 18,
+      borderWidth: 1,
+      gap: 4,
+      padding: 14,
+    },
+    linkTitle: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    linkBody: {
+      color: colors.textMuted,
+      lineHeight: 20,
     },
     error: {
       color: colors.danger,

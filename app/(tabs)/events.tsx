@@ -121,7 +121,7 @@ export default function EventsScreen() {
         renderItem={({ item }) => (
           <Pressable onPress={() => router.push(`/events/${item.id}`)} style={styles.card}>
             {item.outfit?.imageUrl ? (
-              <Image source={{ uri: item.outfit.imageUrl }} style={styles.image} />
+              <Image resizeMode="contain" source={{ uri: item.outfit.imageUrl }} style={styles.image} />
             ) : (
               <View style={styles.imageFallback}>
                 <Text style={styles.imageFallbackText}>No look yet</Text>

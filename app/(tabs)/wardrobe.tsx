@@ -19,6 +19,7 @@ import { useSession } from '../../lib/session';
 import { AmbientBackground } from '../../lib/ambient-background';
 import { useTheme } from '../../lib/theme';
 import { fetchPersonalizationSnapshot, toggleFavoriteItem } from '../../lib/personalization';
+import { fetchRecommendations, type RecommendedOutfit } from '../../lib/recommendations';
 import {
   type Brand,
   type Category,
@@ -50,6 +51,8 @@ export default function WardrobeScreen() {
   const [favoriteOnly, setFavoriteOnly] = useState(false);
   const [viewMode, setViewMode] = useState<'catalog' | 'list'>('catalog');
   const [favoriteItemIds, setFavoriteItemIds] = useState<string[]>([]);
+  const [todaySuggestion, setTodaySuggestion] = useState<RecommendedOutfit | null>(null);
+  const [todayContext, setTodayContext] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -112,12 +115,15 @@ export default function WardrobeScreen() {
       }
 
       try {
-        const [{ items: nextItems }, personalization] = await Promise.all([
+        const [{ items: nextItems }, personalization, recommendationState] = await Promise.all([
           fetchWardrobeItems(user.id),
           fetchPersonalizationSnapshot(user.id),
+          fetchRecommendations(user.id),
         ]);
         setItems(nextItems);
         setFavoriteItemIds(personalization.favoriteItemIds);
+        setTodaySuggestion(recommendationState.todaySuggestions[0] ?? null);
+        setTodayContext(recommendationState.todayContext ?? null);
         setErrorMessage(null);
       } catch (error) {
         const message =
@@ -306,6 +312,36 @@ export default function WardrobeScreen() {
                 </Pressable>
               </View>
             </View>
+            {todaySuggestion ? (
+              <Pressable
+                onPress={() => router.push(`/outfits/${todaySuggestion.outfit.id}`)}
+                style={styles.smartCard}
+              >
+                <View style={styles.smartHeader}>
+                  <View style={styles.smartHeaderCopy}>
+                    <Text style={styles.smartEyebrow}>What should I wear today</Text>
+                    <Text style={styles.smartTitle}>{todaySuggestion.outfit.name}</Text>
+                  </View>
+                  <View style={styles.smartScorePill}>
+                    <Text style={styles.smartScoreText}>{todaySuggestion.scorePercent}%</Text>
+                  </View>
+                </View>
+                <Text style={styles.smartBody}>
+                  {todayContext ?? 'A grounded pick based on your events, preferences, and recent rotation.'}
+                </Text>
+                {todaySuggestion.reasons.slice(0, 2).map((reason) => (
+                  <Text key={`${todaySuggestion.outfit.id}-${reason}`} style={styles.smartReason}>
+                    {reason}
+                  </Text>
+                ))}
+                <View style={styles.smartActionRow}>
+                  <Text style={styles.smartActionText}>Open look</Text>
+                  <Pressable onPress={() => router.push('/(tabs)/recommendations')} style={styles.smartSecondaryAction}>
+                    <Text style={styles.smartSecondaryActionText}>More suggestions</Text>
+                  </Pressable>
+                </View>
+              </Pressable>
+            ) : null}
             <View style={styles.viewToggleRow}>
               <Text style={styles.filterLabel}>View</Text>
               <View style={styles.viewToggle}>
@@ -625,6 +661,80 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
+  },
+  smartCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 24,
+    borderWidth: 1,
+    marginTop: 14,
+    padding: 18,
+    gap: 10,
+  },
+  smartHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  smartHeaderCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  smartEyebrow: {
+    color: colors.accent,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  smartTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  smartScorePill: {
+    backgroundColor: colors.accentMuted,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  smartScoreText: {
+    color: colors.accent,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  smartBody: {
+    color: colors.textMuted,
+    lineHeight: 21,
+  },
+  smartReason: {
+    color: colors.textSubtle,
+    lineHeight: 20,
+  },
+  smartActionRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  smartActionText: {
+    color: colors.accent,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  smartSecondaryAction: {
+    backgroundColor: colors.surfaceStrong,
+    borderColor: colors.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  smartSecondaryActionText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '700',
   },
   heroPrimaryButton: {
     alignItems: 'center',
