@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -39,6 +40,8 @@ export default function OutfitsScreen() {
   const [goToOnly, setGoToOnly] = useState(false);
   const [recentlyLikedOutfitIds, setRecentlyLikedOutfitIds] = useState<string[]>([]);
   const [goToOutfitIds, setGoToOutfitIds] = useState<string[]>([]);
+  const [hoveredOutfitId, setHoveredOutfitId] = useState<string | null>(null);
+  const [hoveredCreate, setHoveredCreate] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -197,7 +200,16 @@ export default function OutfitsScreen() {
           />
         }
         renderItem={({ item }) => (
-          <Pressable onPress={() => router.push(`/outfits/${item.id}`)} style={styles.card}>
+          <Pressable
+            onHoverIn={Platform.OS === 'web' ? () => setHoveredOutfitId(item.id) : undefined}
+            onHoverOut={Platform.OS === 'web' ? () => setHoveredOutfitId((current) => (current === item.id ? null : current)) : undefined}
+            onPress={() => router.push(`/outfits/${item.id}`)}
+            style={({ pressed }) => [
+              styles.card,
+              hoveredOutfitId === item.id && styles.cardHovered,
+              pressed && styles.cardPressed,
+            ]}
+          >
             <Pressable onPress={() => handleToggleFavorite(item.id)} style={styles.favoriteButton}>
               <Text style={styles.favoriteButtonText}>
                 {favoriteOutfitIds.includes(item.id) ? '♥' : '♡'}
@@ -360,7 +372,16 @@ export default function OutfitsScreen() {
                 </Pressable>
               </View>
             ) : null}
-            <Pressable onPress={() => router.push('/outfits/new')} style={styles.createButton}>
+            <Pressable
+              onHoverIn={Platform.OS === 'web' ? () => setHoveredCreate(true) : undefined}
+              onHoverOut={Platform.OS === 'web' ? () => setHoveredCreate(false) : undefined}
+              onPress={() => router.push('/outfits/new')}
+              style={({ pressed }) => [
+                styles.createButton,
+                hoveredCreate && styles.primaryButtonHovered,
+                pressed && styles.buttonPressed,
+              ]}
+            >
               <Text style={styles.createButtonText}>Create outfit</Text>
             </Pressable>
             {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
@@ -511,6 +532,13 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     paddingHorizontal: 18,
     paddingVertical: 14,
   },
+  primaryButtonHovered: {
+    backgroundColor: colors.accentMuted,
+  },
+  buttonPressed: {
+    opacity: 0.94,
+    transform: [{ scale: 0.985 }],
+  },
   createButtonText: {
     color: colors.accentText,
     fontSize: 15,
@@ -529,6 +557,18 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     borderWidth: 1,
     overflow: 'hidden',
     position: 'relative',
+  },
+  cardHovered: {
+    borderColor: colors.accentMuted,
+    shadowColor: colors.accent,
+    shadowOpacity: 0.14,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+  cardPressed: {
+    opacity: 0.96,
+    transform: [{ scale: 0.995 }],
   },
   favoriteButton: {
     position: 'absolute',

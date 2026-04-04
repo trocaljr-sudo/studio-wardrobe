@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Platform,
   Pressable,
   RefreshControl,
   SectionList,
@@ -41,6 +42,8 @@ export default function EventsScreen() {
   const { colors } = useTheme();
   const styles = createStyles(colors);
   const [events, setEvents] = useState<EventSummary[]>([]);
+  const [hoveredEventId, setHoveredEventId] = useState<string | null>(null);
+  const [hoveredCreateAction, setHoveredCreateAction] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -119,7 +122,16 @@ export default function EventsScreen() {
           />
         }
         renderItem={({ item }) => (
-          <Pressable onPress={() => router.push(`/events/${item.id}`)} style={styles.card}>
+          <Pressable
+            onHoverIn={Platform.OS === 'web' ? () => setHoveredEventId(String(item.id)) : undefined}
+            onHoverOut={Platform.OS === 'web' ? () => setHoveredEventId((current) => (current === String(item.id) ? null : current)) : undefined}
+            onPress={() => router.push(`/events/${item.id}`)}
+            style={({ pressed }) => [
+              styles.card,
+              hoveredEventId === String(item.id) && styles.cardHovered,
+              pressed && styles.cardPressed,
+            ]}
+          >
             {item.outfit?.imageUrl ? (
               <Image resizeMode="contain" source={{ uri: item.outfit.imageUrl }} style={styles.image} />
             ) : (
@@ -157,7 +169,16 @@ export default function EventsScreen() {
                 ? errorMessage
                 : 'Add an event to map a real date or occasion to one of your saved outfits.'}
             </Text>
-            <Pressable onPress={() => router.push('/events/new')} style={styles.emptyButton}>
+            <Pressable
+              onHoverIn={Platform.OS === 'web' ? () => setHoveredCreateAction('empty') : undefined}
+              onHoverOut={Platform.OS === 'web' ? () => setHoveredCreateAction((current) => (current === 'empty' ? null : current)) : undefined}
+              onPress={() => router.push('/events/new')}
+              style={({ pressed }) => [
+                styles.emptyButton,
+                hoveredCreateAction === 'empty' && styles.primaryButtonHovered,
+                pressed && styles.buttonPressed,
+              ]}
+            >
               <Text style={styles.emptyButtonText}>
                 {errorMessage ? 'Try creating an event' : 'Create your first event'}
               </Text>
@@ -170,7 +191,16 @@ export default function EventsScreen() {
             <Text style={styles.body}>
               Plan what you want to wear for upcoming moments and keep your styling calendar in one place.
             </Text>
-            <Pressable onPress={() => router.push('/events/new')} style={styles.primaryButton}>
+            <Pressable
+              onHoverIn={Platform.OS === 'web' ? () => setHoveredCreateAction('header') : undefined}
+              onHoverOut={Platform.OS === 'web' ? () => setHoveredCreateAction((current) => (current === 'header' ? null : current)) : undefined}
+              onPress={() => router.push('/events/new')}
+              style={({ pressed }) => [
+                styles.primaryButton,
+                hoveredCreateAction === 'header' && styles.primaryButtonHovered,
+                pressed && styles.buttonPressed,
+              ]}
+            >
               <Text style={styles.primaryButtonText}>Create event</Text>
             </Pressable>
           </View>
@@ -216,6 +246,13 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     paddingVertical: 12,
     borderRadius: 14,
   },
+  primaryButtonHovered: {
+    backgroundColor: colors.accentMuted,
+  },
+  buttonPressed: {
+    opacity: 0.94,
+    transform: [{ scale: 0.985 }],
+  },
   primaryButtonText: {
     color: colors.accentText,
     fontWeight: '700',
@@ -234,6 +271,18 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     borderColor: colors.border,
     overflow: 'hidden',
     marginBottom: 14,
+  },
+  cardHovered: {
+    borderColor: colors.accentMuted,
+    shadowColor: colors.accent,
+    shadowOpacity: 0.14,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+  cardPressed: {
+    opacity: 0.96,
+    transform: [{ scale: 0.995 }],
   },
   image: {
     width: '100%',

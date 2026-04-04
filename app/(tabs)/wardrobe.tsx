@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -53,6 +54,9 @@ export default function WardrobeScreen() {
   const [favoriteItemIds, setFavoriteItemIds] = useState<string[]>([]);
   const [todaySuggestion, setTodaySuggestion] = useState<RecommendedOutfit | null>(null);
   const [todayContext, setTodayContext] = useState<string | null>(null);
+  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
+  const [hoveredHeroAction, setHoveredHeroAction] = useState<'add' | 'event' | 'ai' | null>(null);
+  const [smartHovered, setSmartHovered] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -257,8 +261,15 @@ export default function WardrobeScreen() {
         }
         renderItem={({ item }) => (
           <Pressable
+            onHoverIn={Platform.OS === 'web' ? () => setHoveredItemId(item.id) : undefined}
+            onHoverOut={Platform.OS === 'web' ? () => setHoveredItemId((current) => (current === item.id ? null : current)) : undefined}
             onPress={() => router.push(`/items/${item.id}`)}
-            style={[styles.card, viewMode === 'catalog' ? styles.catalogCard : styles.listCard]}
+            style={({ pressed }) => [
+              styles.card,
+              viewMode === 'catalog' ? styles.catalogCard : styles.listCard,
+              hoveredItemId === item.id && styles.cardHovered,
+              pressed && styles.cardPressed,
+            ]}
           >
             <Pressable onPress={() => handleToggleFavorite(item.id)} style={styles.favoriteButton}>
               <Text style={styles.favoriteButtonText}>
@@ -301,21 +312,54 @@ export default function WardrobeScreen() {
                 <Text style={styles.heroBody}>Add pieces, plan events, and jump back into Style AI.</Text>
               </View>
               <View style={styles.heroActions}>
-                <Pressable onPress={() => router.push('/(tabs)/add-item')} style={styles.heroSecondaryButton}>
+                <Pressable
+                  onHoverIn={Platform.OS === 'web' ? () => setHoveredHeroAction('add') : undefined}
+                  onHoverOut={Platform.OS === 'web' ? () => setHoveredHeroAction((current) => (current === 'add' ? null : current)) : undefined}
+                  onPress={() => router.push('/(tabs)/add-item')}
+                  style={({ pressed }) => [
+                    styles.heroSecondaryButton,
+                    hoveredHeroAction === 'add' && styles.secondaryButtonHovered,
+                    pressed && styles.buttonPressed,
+                  ]}
+                >
                   <Text style={styles.heroSecondaryButtonText}>Add item</Text>
                 </Pressable>
-                <Pressable onPress={() => router.push('/events/new')} style={styles.heroPrimaryButton}>
+                <Pressable
+                  onHoverIn={Platform.OS === 'web' ? () => setHoveredHeroAction('event') : undefined}
+                  onHoverOut={Platform.OS === 'web' ? () => setHoveredHeroAction((current) => (current === 'event' ? null : current)) : undefined}
+                  onPress={() => router.push('/events/new')}
+                  style={({ pressed }) => [
+                    styles.heroPrimaryButton,
+                    hoveredHeroAction === 'event' && styles.primaryButtonHovered,
+                    pressed && styles.buttonPressed,
+                  ]}
+                >
                   <Text style={styles.heroPrimaryButtonText}>Plan event</Text>
                 </Pressable>
-                <Pressable onPress={() => router.push('/style-ai')} style={styles.heroSecondaryButton}>
+                <Pressable
+                  onHoverIn={Platform.OS === 'web' ? () => setHoveredHeroAction('ai') : undefined}
+                  onHoverOut={Platform.OS === 'web' ? () => setHoveredHeroAction((current) => (current === 'ai' ? null : current)) : undefined}
+                  onPress={() => router.push('/style-ai')}
+                  style={({ pressed }) => [
+                    styles.heroSecondaryButton,
+                    hoveredHeroAction === 'ai' && styles.secondaryButtonHovered,
+                    pressed && styles.buttonPressed,
+                  ]}
+                >
                   <Text style={styles.heroSecondaryButtonText}>Style AI</Text>
                 </Pressable>
               </View>
             </View>
             {todaySuggestion ? (
               <Pressable
+                onHoverIn={Platform.OS === 'web' ? () => setSmartHovered(true) : undefined}
+                onHoverOut={Platform.OS === 'web' ? () => setSmartHovered(false) : undefined}
                 onPress={() => router.push(`/outfits/${todaySuggestion.outfit.id}`)}
-                style={styles.smartCard}
+                style={({ pressed }) => [
+                  styles.smartCard,
+                  smartHovered && styles.cardHovered,
+                  pressed && styles.cardPressed,
+                ]}
               >
                 <View style={styles.smartHeader}>
                   <View style={styles.smartHeaderCopy}>
@@ -674,6 +718,18 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     padding: 18,
     gap: 10,
   },
+  cardHovered: {
+    borderColor: colors.accentMuted,
+    shadowColor: colors.accent,
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+  cardPressed: {
+    opacity: 0.96,
+    transform: [{ scale: 0.995 }],
+  },
   smartHeader: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -764,6 +820,17 @@ const createStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleShe
     color: colors.text,
     fontSize: 14,
     fontWeight: '700',
+  },
+  primaryButtonHovered: {
+    backgroundColor: colors.accentMuted,
+  },
+  secondaryButtonHovered: {
+    backgroundColor: colors.surfaceStrong,
+    borderColor: colors.accentMuted,
+  },
+  buttonPressed: {
+    opacity: 0.94,
+    transform: [{ scale: 0.985 }],
   },
   searchInput: {
     backgroundColor: colors.input,

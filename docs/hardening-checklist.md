@@ -14,6 +14,7 @@
 - [x] Add a cross-platform image source picker sheet for Add Item instead of platform-fragile fallback alerts
 - [x] Keep iOS native action-sheet behavior where it already feels right
 - [x] Constrain major screens to more product-like widths on web instead of stretching edge to edge
+- [x] Add desktop-friendly hover and press feedback to the main browse surfaces
 
 ## Intelligence and history depth
 
